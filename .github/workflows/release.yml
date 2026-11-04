@@ -3,7 +3,7 @@ name: Build & Release Pico Executables
 on:
   push:
     branches: ["main"]
-    tags: ["v*"]
+    tags: ["*"]
   pull_request:
   workflow_dispatch:
 
@@ -83,28 +83,14 @@ jobs:
             target/release/pico
             target/release/pico.exe
 
-      - name: Determine release tag
-        id: release_info
-        shell: bash
-        run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "tag=" >> $GITHUB_OUTPUT
-            echo "name=Pico (PR Build)" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
-            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-            echo "name=Pico ${{ github.ref_name }}" >> $GITHUB_OUTPUT
-          else
-            echo "tag=v__VERSION__" >> $GITHUB_OUTPUT
-            echo "name=Pico v__VERSION__" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Build platform packages and installers
+      - name: Build and publish platform packages to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ steps.release_info.outputs.tag }}
-          releaseName: ${{ steps.release_info.outputs.name }}
+          tagName: ${{ github.ref_name }}
+          releaseName: "Pico ${{ github.ref_name }}"
           releaseBody: "Automated desktop release of Pico static site studio."
           releaseDraft: true
           prerelease: false
