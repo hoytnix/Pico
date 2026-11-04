@@ -25,11 +25,12 @@ import type {
 
 interface SettingsModalProps {
   isOpen: boolean;
-  onClose: () => void;
+  onClose?: () => void;
   onSettingsSaved?: () => void;
+  isInline?: boolean;
 }
 
-export function SettingsModal({ isOpen, onClose, onSettingsSaved }: SettingsModalProps) {
+export function SettingsModal({ isOpen, onClose, onSettingsSaved, isInline = false }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<'llm' | 'site'>('llm');
 
   // LLM settings
@@ -56,7 +57,7 @@ export function SettingsModal({ isOpen, onClose, onSettingsSaved }: SettingsModa
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen && !isInline) return;
 
     async function loadData() {
       try {
@@ -189,17 +190,17 @@ export function SettingsModal({ isOpen, onClose, onSettingsSaved }: SettingsModa
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen && !isInline) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden text-neutral-100">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 bg-neutral-900/90">
-          <div className="flex items-center gap-2">
-            <Sliders className="w-5 h-5 text-indigo-400" />
-            <h2 className="text-base font-bold text-neutral-100">Settings</h2>
-          </div>
+  const content = (
+    <div className={`bg-neutral-900 border border-neutral-800 rounded-2xl w-full flex flex-col shadow-2xl overflow-hidden text-neutral-100 ${isInline ? 'h-full max-h-none rounded-none border-none' : 'max-w-2xl max-h-[85vh]'}`}>
+      {/* Modal Header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 bg-neutral-900/90 shrink-0">
+        <div className="flex items-center gap-2">
+          <Sliders className="w-5 h-5 text-indigo-400" />
+          <h2 className="text-base font-bold text-neutral-100">Settings</h2>
+        </div>
+        {!isInline && onClose && (
           <button
             type="button"
             onClick={onClose}
@@ -207,10 +208,11 @@ export function SettingsModal({ isOpen, onClose, onSettingsSaved }: SettingsModa
           >
             <X className="w-5 h-5" />
           </button>
-        </div>
+        )}
+      </div>
 
-        {/* Tab Switcher */}
-        <div className="flex border-b border-neutral-800 px-6 bg-neutral-950/60 text-xs font-medium">
+      {/* Tab Switcher */}
+      <div className="flex border-b border-neutral-800 px-6 bg-neutral-950/60 text-xs font-medium shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab('llm')}
@@ -562,14 +564,18 @@ export function SettingsModal({ isOpen, onClose, onSettingsSaved }: SettingsModa
         </div>
 
         {/* Modal Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-800 bg-neutral-950/80">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-medium transition-colors cursor-pointer"
-          >
-            Cancel
-          </button>
+        <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-800 bg-neutral-950/80 shrink-0">
+          {!isInline && onClose ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-medium transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+          ) : (
+            <div />
+          )}
 
           <button
             type="button"
@@ -580,6 +586,15 @@ export function SettingsModal({ isOpen, onClose, onSettingsSaved }: SettingsModa
           </button>
         </div>
       </div>
+  );
+
+  if (isInline) {
+    return content;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+      {content}
     </div>
   );
 }

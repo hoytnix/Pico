@@ -19,6 +19,7 @@ interface SitePickerModalProps {
   onSiteOpened: (site: SiteInfo) => void;
   onClose?: () => void;
   allowClose?: boolean;
+  isInline?: boolean;
 }
 
 const STARTERS = [
@@ -54,6 +55,7 @@ export function SitePickerModal({
   onSiteOpened,
   onClose,
   allowClose = false,
+  isInline = false,
 }: SitePickerModalProps) {
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [selectedStarter, setSelectedStarter] = useState('blog');
@@ -112,30 +114,29 @@ export function SitePickerModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden text-neutral-100">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 bg-neutral-900/90">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-indigo-400" />
-            <h2 className="text-base font-bold text-neutral-100">
-              {isCreatingNew ? 'Create New Static Site' : 'Open or Create Site'}
-            </h2>
-          </div>
-          {allowClose && onClose && (
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-1 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+  const modalBody = (
+    <div className={`bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden text-neutral-100 ${isInline ? 'my-auto' : ''}`}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 bg-neutral-900/90 shrink-0">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-indigo-400" />
+          <h2 className="text-base font-bold text-neutral-100">
+            {isCreatingNew ? 'Create New Static Site' : 'Open or Create Site'}
+          </h2>
         </div>
+        {!isInline && allowClose && onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
+      </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      {/* Content */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
           {errorMsg && (
             <div className="p-3 bg-red-950/70 border border-red-800 rounded-lg text-xs text-red-200">
               {errorMsg}
@@ -281,6 +282,15 @@ export function SitePickerModal({
           )}
         </div>
       </div>
+    );
+
+  if (isInline) {
+    return modalBody;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+      {modalBody}
     </div>
   );
 }

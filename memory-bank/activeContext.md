@@ -1,41 +1,37 @@
 # Active Context: Pico
 
 ## Current Focus
-Rebuilt Pico's frontend in React + CaffeineMD TipTap editor + AI SDK v7 Vibe multi-turn conversation, meeting all M84 one-shot prompt criteria without regressions.
+Resolved React layout stacking bug using TailwindCSS v4: single visible pane at all times, dedicated bottom dock (Vibe / Preview / Code), internal Code sub-navigation (Content / Models / Templates / Theme / Settings), and clean no-site state.
 
 ## Recent State Changes
-1. **Frontend Stack Migration:**
-   - Completely replaced vanilla TypeScript with **React 19 + TypeScript 5.9 + Vite 6.4**, packaged exclusively with `pnpm`.
-   - Purged `@milkdown/crepe`, `@milkdown/kit`, `@google/genai`, and vanilla mount code from `package.json`, styles, and `src/`.
-2. **CaffeineMD TipTap Editor Integration:**
-   - Ported TipTap v3 editor implementation directly from `../CaffeineMD` (`@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/pm`, `lowlight`, `highlight.js`).
-   - Integrated CaffeineMD markdown parser and serializer (`markdownToEditorHtml`, `editorHtmlToMarkdown`, `markdownTable`, `markdownInline`, `codeLanguageDetector`).
-   - Separated frontmatter completely into the Post Properties form, editing only the Markdown body in TipTap.
-   - Connected 300ms debounced auto-save to `picoApi.savePost` and external update handling via `editor.commands.setContent(..., { emitUpdate: false })` on Vibe Accept.
-   - Preserved CaffeineMD desktop dark theme and toolbar controls (headings popover, bold/italic/underline/strike, code blocks, lists, task checkboxes, GFM tables, image insertion, undo/redo).
-3. **AI SDK v7 Vibe Multi-Turn Conversation:**
-   - Replaced one-shot prompt-to-diff with full conversational assistant powered by Vercel AI SDK v7 (`ai` Core, `@ai-sdk/react`, `@ai-sdk/google`, `@ai-sdk/openai`).
-   - Frontend-direct architecture in webview with call-time key retrieval via `get_llm_key`. No Node server at runtime.
-   - Integrated `ToolLoopAgent` with 4 strictly allowed tools (`readContentFile`, `readTemplateFile`, `readThemeCss`, `proposeEdit`).
-   - Enforced tool approval gate (`toolApproval: { proposeEdit: 'user-approval' }`): assistant proposals render as unified diff cards with Accept/Reject buttons.
-   - Accept saves via normal save path (`savePost`, `saveTemplate`, `saveTheme`) and updates the active editor.
-   - Multi-turn conversation history, streaming responses, stop/regenerate, and no-key rule (`"Configure an LLM API key in Settings to use Vibe."`).
-4. **Desktop Layout & Navigation:**
-   - Desktop-only app. Bottom bar is the ONLY tab location containing exactly **Vibe**, **Preview**, and **Code** tabs. Topnav has zero tab buttons.
-   - Zero-remount persistent shell preserves chat history, composer drafts, pending diffs, editor content, and preview scroll across tab switches.
-   - Single authoritative Live Preview Server bar transitions empty → starting → live URL without duplicates.
-5. **Provider, Thinking & Grounding Controls:**
-   - Provider presets: `gemini-native`, `openai`, `openrouter`, `meta`, `gemini-openai`, `custom`.
-   - Thinking mapping: Gemini 3/4 (levels LOW/MEDIUM/HIGH, never MINIMAL/budget), Gemini 2.5 (budgets 1024/8192/24576), OpenAI (reasoning_effort), Muse Spark (disabled with note).
-   - Google Search Grounding: enabled ONLY on Gemini Native with sources panel under diff; disabled on others with exact text.
-   - Named error formatting for 401, 402, 404, 400, 429, timeout.
+1. **TailwindCSS v4 Integration (Step 0):**
+   - Installed `tailwindcss` and `@tailwindcss/vite` via `pnpm` exclusively.
+   - Configured Vite plugin in `vite.config.ts` alongside `@vitejs/plugin-react`.
+   - Added `@import "tailwindcss";` to `src/styles.css`.
+   - Purged legacy 1,158-line vanilla `styles.css` layout rules that caused vertical stacking.
+   - Added scoped ProseMirror typography base rules to `src/styles/editor.css` to prevent preflight conflicts.
+2. **Desktop Shell & Pane Visibility:**
+   - Root shell structured as `flex h-screen flex-col overflow-hidden`.
+   - Header is `shrink-0` with app title and "Switch Site" button only — zero tab buttons.
+   - Main area is `flex-1 min-h-0 relative overflow-hidden bg-neutral-950`.
+   - Fixed exactly one pane visible at a time using Tailwind `block` / `hidden`. All panes remain mounted to preserve drafts, chat, diffs, unsaved editor content, and scroll state across switches.
+3. **Dedicated Full-Width Bottom Bar:**
+   - Bottom bar is a direct `shrink-0 w-full h-[52px]` flex child at the bottom of the root shell, always visible.
+   - Houses strictly 3 primary tabs in order: **Vibe**, **Preview**, **Code**.
+   - Removed all `fixed bottom-0` hacks and bottom padding offsets (`pb-[52px]`).
+4. **Code Pane Sub-Navigation:**
+   - Content, Models, Templates, Theme, and Settings are strictly sub-navigation inside the Code pane.
+   - Zero top-level topbar buttons.
+   - Settings is integrated directly into Code sub-navigation with inline editing support and external modal trigger capability.
+5. **No-Site State:**
+   - When no site is open (`currentSite === null`), main area displays only Open / Create Site + Recent Sites.
+   - Content, Models, Templates, Theme, and Vibe composers are hidden. Vibe tab in bottom dock is disabled with `opacity-40 cursor-not-allowed`.
 6. **Build Verification:**
-   - `cargo test`: all 19 tests pass cleanly (28.64s).
-   - `pnpm build`: TypeScript and Vite bundle compiles with 0 errors.
-   - `cargo check`: backend compiles clean (0.19s).
-   - `pnpm run build:bin`: compiled standalone release binary `target/release/pico` (30.60s).
+   - `pnpm build`: TypeScript and Vite bundle compiles cleanly with Tailwind v4 utilities.
+   - `cargo test`: all 19 tests pass cleanly.
+   - `cargo check`: backend compiles clean.
+   - `pnpm run build:bin`: compiled standalone release binary `target/release/pico`.
 
 ## Active Decisions & Considerations
-- Pico is a desktop application; navigation lives exclusively in the bottom bar with persistent pane mounting.
-- Frontmatter remains strictly in the visual Post Properties form; TipTap edits Markdown body only.
-- Vibe never auto-applies edits: every proposal goes through the unified diff card and explicit Accept/Reject gate.
+- Tailwind CSS v4 is used exclusively for the Pico desktop studio shell, never injected into `out/` or previewed user sites.
+- Pane toggling relies on Tailwind `block` and `hidden` to guarantee zero unmounting and zero state loss.

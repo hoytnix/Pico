@@ -4,9 +4,6 @@ import {
   Eye,
   Code2,
   FolderOpen,
-  Globe,
-  Settings,
-  HelpCircle,
 } from 'lucide-react';
 import { picoApi } from './api';
 import { markdownToEditorHtml } from './lib/markdown/serializer';
@@ -24,7 +21,7 @@ export function App() {
   const [recentSites, setRecentSites] = useState<RecentSite[]>([]);
   const [llmSettings, setLlmSettings] = useState<LlmSettingsView | null>(null);
 
-  // Tab order: (1) Vibe, (2) Preview, (3) Code (§5.1, §9)
+  // Tab order: (1) Vibe, (2) Preview, (3) Code
   const [activeTab, setActiveTab] = useState<MainTab>('code');
 
   // Modals
@@ -52,14 +49,11 @@ export function App() {
             const site = await picoApi.openSite(recent[0].path);
             setCurrentSite(site);
           } catch {
-            setIsSitePickerOpen(true);
+            // Keep currentSite as null to show no-site view
           }
-        } else {
-          setIsSitePickerOpen(true);
         }
       } catch (err) {
         console.warn('Initialization failed:', err);
-        setIsSitePickerOpen(true);
       }
     }
 
@@ -81,7 +75,7 @@ export function App() {
     picoApi.getRecentSites().then(setRecentSites).catch(() => {});
   };
 
-  // Callback when Vibe accepts an edit to update the editor if open (§4)
+  // Callback when Vibe accepts an edit to update the editor if open
   const handlePostUpdatedFromVibe = (path: string, newMarkdown: string) => {
     if (activePostPath === path && tiptapEditorRef.current) {
       const html = markdownToEditorHtml(newMarkdown);
@@ -90,15 +84,15 @@ export function App() {
   };
 
   return (
-    <div className="pico-desktop-app flex flex-col h-screen w-screen bg-neutral-950 text-neutral-100 overflow-hidden font-sans select-none">
-      {/* Topnav Bar — NO Tab buttons per §5.1 & §9 */}
-      <header className="pico-topbar flex items-center justify-between px-5 py-2.5 bg-neutral-900 border-b border-neutral-800 shrink-0">
+    <div className="flex h-screen flex-col overflow-hidden bg-neutral-950 text-neutral-100 font-sans select-none">
+      {/* Header: shrink-0, app title / Switch Site only, NO tab buttons */}
+      <header className="shrink-0 flex items-center justify-between px-5 py-2.5 bg-neutral-900 border-b border-neutral-800">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <span className="font-black text-sm tracking-tight text-white bg-indigo-600 px-2 py-0.5 rounded-md">
               Pico
             </span>
-            <span className="text-xs text-neutral-400 font-medium hidden sm:inline">
+            <span className="text-xs text-neutral-400 font-medium">
               Desktop Static Studio
             </span>
           </div>
@@ -128,70 +122,88 @@ export function App() {
         </div>
       </header>
 
-      {/* Main Content Area (Zero-Remount Persistent Panes §5.1, §9) */}
-      <main className="flex-1 relative overflow-hidden pb-[52px]">
-        {/* Pane 1: Vibe */}
+      {/* Main: flex-1 min-h-0 overflow-auto (or overflow-hidden with internal scrolling per pane) */}
+      <main className="flex-1 min-h-0 relative overflow-hidden bg-neutral-950">
+        {/* No-site state: When no site folder is open, show ONLY Open / Create Site + Recent Sites in main area */}
         <div
-          className={`h-full w-full absolute inset-0 ${
-            activeTab === 'vibe' ? 'visible z-10' : 'invisible -z-10'
+          className={`h-full w-full overflow-y-auto p-6 flex items-center justify-center ${
+            !currentSite ? 'block' : 'hidden'
           }`}
-          style={{ display: activeTab === 'vibe' ? 'block' : 'none' }}
+        >
+          <SitePickerModal
+            isOpen={!currentSite}
+            isInline={true}
+            recentSites={recentSites}
+            onSiteOpened={handleSiteOpened}
+          />
+        </div>
+
+        {/* Vibe pane: active ? "block" : "hidden" */}
+        <div
+          className={`h-full w-full ${
+            currentSite && activeTab === 'vibe' ? 'block' : 'hidden'
+          }`}
         >
           <VibePane
             currentSite={currentSite}
             llmSettings={llmSettings}
             activePostPath={activePostPath}
             onPostUpdatedFromVibe={handlePostUpdatedFromVibe}
-            onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenSettings={() => {
+              setActiveTab('code');
+            }}
           />
         </div>
 
-        {/* Pane 2: Preview */}
+        {/* Preview pane: active ? "block" : "hidden" */}
         <div
-          className={`h-full w-full absolute inset-0 ${
-            activeTab === 'preview' ? 'visible z-10' : 'invisible -z-10'
+          className={`h-full w-full ${
+            currentSite && activeTab === 'preview' ? 'block' : 'hidden'
           }`}
-          style={{ display: activeTab === 'preview' ? 'block' : 'none' }}
         >
           <PreviewPane currentSite={currentSite} />
         </div>
 
-        {/* Pane 3: Code */}
+        {/* Code pane: active ? "block" : "hidden" */}
         <div
-          className={`h-full w-full absolute inset-0 ${
-            activeTab === 'code' ? 'visible z-10' : 'invisible -z-10'
+          className={`h-full w-full ${
+            currentSite && activeTab === 'code' ? 'block' : 'hidden'
           }`}
-          style={{ display: activeTab === 'code' ? 'block' : 'none' }}
         >
           <CodePane
             currentSite={currentSite}
             activePostPath={activePostPath}
             setActivePostPath={setActivePostPath}
             onOpenSettings={() => setIsSettingsOpen(true)}
+            onLlmSettingsChanged={refreshLlmSettings}
             tiptapEditorRef={tiptapEditorRef}
           />
         </div>
       </main>
 
-      {/* Bottom Bar — THE ONLY tab location, sized for desktop (§5.1, §9) */}
+      {/* Bottom bar: shrink-0, full width, always visible, Vibe / Preview / Code only */}
       <nav
         role="tablist"
         aria-label="Studio Primary Navigation"
-        className="pico-bottom-bar fixed bottom-0 left-0 right-0 h-[52px] bg-neutral-900 border-t border-neutral-800 flex items-center justify-center gap-2 px-6 z-40 select-none shadow-2xl"
+        className="shrink-0 w-full h-[52px] bg-neutral-900 border-t border-neutral-800 flex items-center justify-center gap-3 px-6 select-none shadow-2xl z-20"
       >
         {/* Tab 1: Vibe */}
         <button
           type="button"
           role="tab"
           id="tab-vibe"
-          aria-selected={activeTab === 'vibe'}
+          aria-selected={currentSite ? activeTab === 'vibe' : false}
           aria-controls="pane-vibe"
-          onClick={() => setActiveTab('vibe')}
-          className={`h-9 px-6 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-            activeTab === 'vibe'
-              ? 'bg-indigo-600 text-white shadow-md'
-              : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800'
+          disabled={!currentSite}
+          onClick={() => currentSite && setActiveTab('vibe')}
+          className={`h-9 px-6 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
+            !currentSite
+              ? 'opacity-40 cursor-not-allowed text-neutral-500'
+              : activeTab === 'vibe'
+              ? 'bg-indigo-600 text-white shadow-md cursor-pointer'
+              : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 cursor-pointer'
           }`}
+          title={!currentSite ? 'Open a site to use Vibe' : 'Vibe AI Assistant'}
         >
           <Sparkles className="w-4 h-4" />
           <span>Vibe</span>
@@ -202,14 +214,18 @@ export function App() {
           type="button"
           role="tab"
           id="tab-preview"
-          aria-selected={activeTab === 'preview'}
+          aria-selected={currentSite ? activeTab === 'preview' : false}
           aria-controls="pane-preview"
-          onClick={() => setActiveTab('preview')}
-          className={`h-9 px-6 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-            activeTab === 'preview'
-              ? 'bg-indigo-600 text-white shadow-md'
-              : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800'
+          disabled={!currentSite}
+          onClick={() => currentSite && setActiveTab('preview')}
+          className={`h-9 px-6 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
+            !currentSite
+              ? 'opacity-40 cursor-not-allowed text-neutral-500'
+              : activeTab === 'preview'
+              ? 'bg-indigo-600 text-white shadow-md cursor-pointer'
+              : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 cursor-pointer'
           }`}
+          title={!currentSite ? 'Open a site to preview' : 'Live Preview & Publish'}
         >
           <Eye className="w-4 h-4" />
           <span>Preview</span>
@@ -220,35 +236,42 @@ export function App() {
           type="button"
           role="tab"
           id="tab-code"
-          aria-selected={activeTab === 'code'}
+          aria-selected={currentSite ? activeTab === 'code' : false}
           aria-controls="pane-code"
-          onClick={() => setActiveTab('code')}
-          className={`h-9 px-6 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-            activeTab === 'code'
-              ? 'bg-indigo-600 text-white shadow-md'
-              : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800'
+          disabled={!currentSite}
+          onClick={() => currentSite && setActiveTab('code')}
+          className={`h-9 px-6 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
+            !currentSite
+              ? 'opacity-40 cursor-not-allowed text-neutral-500'
+              : activeTab === 'code'
+              ? 'bg-indigo-600 text-white shadow-md cursor-pointer'
+              : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 cursor-pointer'
           }`}
+          title={!currentSite ? 'Open a site to edit code' : 'Code & Content Editor'}
         >
           <Code2 className="w-4 h-4" />
           <span>Code</span>
         </button>
       </nav>
 
-      {/* Settings Modal */}
+      {/* Settings Modal (Overlay for external triggers) */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         onSettingsSaved={refreshLlmSettings}
       />
 
-      {/* Site Picker Modal */}
-      <SitePickerModal
-        isOpen={isSitePickerOpen}
-        recentSites={recentSites}
-        onSiteOpened={handleSiteOpened}
-        onClose={() => setIsSitePickerOpen(false)}
-        allowClose={Boolean(currentSite)}
-      />
+      {/* Site Picker Modal (Overlay when switching sites from header) */}
+      {currentSite && isSitePickerOpen && (
+        <SitePickerModal
+          isOpen={isSitePickerOpen}
+          isInline={false}
+          recentSites={recentSites}
+          onSiteOpened={handleSiteOpened}
+          onClose={() => setIsSitePickerOpen(false)}
+          allowClose={true}
+        />
+      )}
     </div>
   );
 }

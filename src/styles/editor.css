@@ -10,6 +10,24 @@
   color: #e2e8f0;
 }
 
+.tiptap-prosemirror strong,
+.tiptap-prosemirror b {
+  font-weight: 700;
+}
+
+.tiptap-prosemirror em,
+.tiptap-prosemirror i {
+  font-style: italic;
+}
+
+.tiptap-prosemirror u {
+  text-decoration: underline;
+}
+
+.tiptap-prosemirror s {
+  text-decoration: line-through;
+}
+
 /* Headings */
 .tiptap-prosemirror h1 {
   font-size: 2rem;
