@@ -1,0 +1,22 @@
+{% extends "skeleton.jinja" %}
+{% from "macros/cards.jinja" import post_card %}
+
+{% block title %}#{{ tag }} — {{ site.title }}{% endblock %}
+
+{% block content %}
+<section class="tag-section">
+  <h1>Tagged <code>#{{ tag }}</code></h1>
+  <div class="card-grid">
+    {% for post in posts %}
+      {{ post_card(post) }}
+    {% endfor %}
+  </div>
+  {% if total_pages > 1 %}
+  <nav class="pagination">
+    {% if prev_url %}<a class="btn" href="{{ prev_url }}">&larr; Previous</a>{% else %}<span></span>{% endif %}
+    <span>Page {{ page }} of {{ total_pages }}</span>
+    {% if next_url %}<a class="btn" href="{{ next_url }}">Next &rarr;</a>{% else %}<span></span>{% endif %}
+  </nav>
+  {% endif %}
+</section>
+{% endblock %}

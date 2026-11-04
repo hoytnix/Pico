@@ -1,0 +1,15 @@
+{% extends "skeleton.jinja" %}
+{% from "macros/cards.jinja" import post_card %}
+
+{% block title %}Projects — {{ site.title }}{% endblock %}
+
+{% block content %}
+<section class="collection-section">
+  <h1>Projects</h1>
+  <div class="card-grid">
+    {% for post in posts %}
+      {{ post_card(post) }}
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

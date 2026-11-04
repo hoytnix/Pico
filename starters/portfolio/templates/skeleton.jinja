@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{{ site.title }}{% endblock %}</title>
+  <meta name="description" content="{{ site.description }}">
+  <meta property="og:title" content="{{ site.title }}">
+  <meta property="og:description" content="{{ site.description }}">
+  <meta property="og:url" content="{{ site.base_url }}">
+  <meta property="og:image" content="{{ site.base_url }}/assets/hero.webp">
+  <link rel="alternate" type="application/rss+xml" title="{{ site.title }} RSS" href="/feed.xml">
+  <link rel="stylesheet" href="/assets/theme.css">
+  <link rel="stylesheet" href="/assets/highlight.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="site-brand" href="/">{{ site.title }}</a>
+      <nav class="site-nav">
+        {% for nav_item in site.nav %}
+          <a href="{{ nav_item.url }}">{{ nav_item.label }}</a>
+        {% endfor %}
+      </nav>
+      <div class="search-box">
+        <input type="search" id="pico-search-input" class="search-input" placeholder="Search site..." aria-label="Search site">
+        <div id="pico-search-results" class="search-results"></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="site-main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <p>&copy; {{ site.author }} &mdash; Built with <strong>Pico</strong> &middot; <a href="/feed.xml">RSS</a> &middot; <a href="/sitemap.xml">Sitemap</a></p>
+  </footer>
+
+  <script src="/assets/highlight.js"></script>
+  <script>
+    (function() {
+      var input = document.getElementById('pico-search-input');
+      var resultsBox = document.getElementById('pico-search-results');
+      var searchIndex = null;
+      if (!input || !resultsBox) return;
+
+      function loadIndex() {
+        if (searchIndex !== null) return Promise.resolve(searchIndex);
+        return fetch('/search.json')
+          .then(function(r) { return r.json(); })
+          .then(function(data) { searchIndex = data || []; return searchIndex; })
+          .catch(function() { searchIndex = []; return searchIndex; });
+      }
+
+      input.addEventListener('input', function() {
+        var q = input.value.trim().toLowerCase();
+        if (!q) {
+          resultsBox.classList.remove('open');
+          resultsBox.innerHTML = '';
+          return;
+        }
+        loadIndex().then(function(items) {
+          var matches = items.filter(function(item) {
+            var haystack = ((item.title || '') + ' ' + (item.excerpt || '') + ' ' + (item.body || '') + ' ' + (item.tags || []).join(' ')).toLowerCase();
+            return haystack.indexOf(q) !== -1;
+          }).slice(0, 8);
+          if (matches.length === 0) {
+            resultsBox.innerHTML = '<div class="search-result-item">No matches found</div>';
+          } else {
+            resultsBox.innerHTML = matches.map(function(m) {
+              return '<a class="search-result-item" href="' + m.url + '"><strong>' + m.title + '</strong><br><small>' + (m.excerpt || '') + '</small></a>';
+            }).join('');
+          }
+          resultsBox.classList.add('open');
+        });
+      });
+
+      document.addEventListener('click', function(e) {
+        if (!resultsBox.contains(e.target) && e.target !== input) {
+          resultsBox.classList.remove('open');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

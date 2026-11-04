@@ -1,0 +1,20 @@
+{% macro post_card(post) %}
+<article class="post-card">
+  {% if post.thumb_webp %}
+  <a href="{{ post.url }}"><img class="hero-img" src="{{ post.thumb_webp }}" alt="{{ post.title }}"></a>
+  {% endif %}
+  <h2>
+    <a href="{{ post.url }}">{{ post.title }}</a>
+    {% if post.draft %}<span class="draft-badge">DRAFT</span>{% endif %}
+  </h2>
+  <p class="post-meta"><small>{{ post.date }}</small></p>
+  <p>{{ post.excerpt }}</p>
+  {% if post.tags %}
+  <div class="tag-list">
+    {% for t in post.tags %}
+      <a class="tag-pill" href="/tags/{{ t }}/">#{{ t }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</article>
+{% endmacro %}

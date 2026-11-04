@@ -1,0 +1,17 @@
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock
+
+# Node / pnpm
+node_modules/
+dist/
+
+# Pico site outputs
+out/
+out.tmp/
+.pico_history/
+
+# Environment / OS
+.DS_Store
+Thumbs.db

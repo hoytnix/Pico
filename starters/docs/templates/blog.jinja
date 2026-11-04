@@ -1,0 +1,27 @@
+{% extends "skeleton.jinja" %}
+
+{% block title %}{{ post.title }} — {{ site.title }} Docs{% endblock %}
+
+{% block content %}
+<div class="docs-layout">
+  <aside class="docs-sidebar">
+    <h3>Documentation</h3>
+    <ul style="list-style: none; padding: 0; margin: 0;">
+      {% for item in all_posts %}
+        <li style="margin: 0.45rem 0;">
+          <a href="{{ item.url }}">{{ item.title }}</a>
+        </li>
+      {% endfor %}
+    </ul>
+  </aside>
+  <article class="post-single">
+    <h1>
+      {{ post.title }}
+      {% if post.draft %}<span class="draft-badge">DRAFT</span>{% endif %}
+    </h1>
+    <div class="post-content">
+      {{ post.body_html | safe }}
+    </div>
+  </article>
+</div>
+{% endblock %}

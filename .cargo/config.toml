@@ -1,0 +1,5 @@
+[target.x86_64-unknown-linux-gnu]
+rustflags = [
+  "-L", "/home/oloty/.local/sysroot/usr/lib/x86_64-linux-gnu",
+  "-Clink-arg=-Wl,-rpath,/home/oloty/.local/sysroot/usr/lib/x86_64-linux-gnu"
+]

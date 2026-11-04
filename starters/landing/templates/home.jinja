@@ -1,0 +1,39 @@
+{% extends "skeleton.jinja" %}
+{% from "macros/cards.jinja" import post_card %}
+
+{% block title %}{{ site.title }} — Welcome{% endblock %}
+
+{% block content %}
+<section class="landing-hero" style="text-align: center; padding: 3rem 1rem;">
+  <h1 style="font-size: 2.75rem; margin-bottom: 0.75rem;">{{ site.title }}</h1>
+  <p style="font-size: 1.25rem; color: var(--muted); max-width: 640px; margin: 0 auto 1.75rem;">{{ site.description }}</p>
+  <a class="btn" href="/blog/">Explore Updates</a>
+</section>
+
+<section class="landing-features">
+  <h2>Features &amp; Highlights</h2>
+  <div class="card-grid">
+    {% for post in posts %}
+      {{ post_card(post) }}
+    {% endfor %}
+  </div>
+</section>
+
+{% if site.form_endpoint %}
+<section class="contact-form">
+  <h2>Get in Touch</h2>
+  <form action="{{ site.form_endpoint }}" method="POST">
+    <label>Your Name
+      <input type="text" name="name" required>
+    </label>
+    <label>Your Email
+      <input type="email" name="email" required>
+    </label>
+    <label>Message
+      <textarea name="message" rows="4" required></textarea>
+    </label>
+    <button type="submit" class="btn">Send Message</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

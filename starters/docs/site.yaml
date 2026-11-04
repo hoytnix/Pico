@@ -1,0 +1,12 @@
+title: "{{SITE_TITLE}}"
+base_url: "https://example.com"
+description: "A Pico site"
+author: "{{AUTHOR}}"
+nav:
+  - label: "Blog"
+    url: "/blog/"
+  - label: "Projects"
+    url: "/projects/"
+form_endpoint: ""
+comments_provider: ""
+comments_repo: ""

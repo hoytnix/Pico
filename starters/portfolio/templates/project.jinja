@@ -1,0 +1,37 @@
+{% extends "skeleton.jinja" %}
+
+{% block title %}{{ post.title }} — {{ site.title }}{% endblock %}
+
+{% block content %}
+<article class="project-single">
+  <header>
+    <h1>
+      {{ post.title }}
+      {% if post.draft %}<span class="draft-badge">DRAFT</span>{% endif %}
+    </h1>
+    <p class="post-meta">{{ post.date }} &mdash; {{ post.excerpt }}</p>
+    {% if post.tags %}
+    <div class="tag-list">
+      {% for t in post.tags %}
+        <a class="tag-pill" href="/tags/{{ t }}/">#{{ t }}</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </header>
+
+  <div class="post-content">
+    {{ post.body_html | safe }}
+  </div>
+
+  {% if post.attachments %}
+  <section class="project-gallery">
+    <h2>Project Gallery</h2>
+    <div class="gallery-grid">
+      {% for att in post.attachments %}
+        <img class="hero-img" src="{{ att }}" alt="{{ post.title }} attachment">
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</article>
+{% endblock %}

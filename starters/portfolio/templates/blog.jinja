@@ -1,0 +1,44 @@
+{% extends "skeleton.jinja" %}
+
+{% block title %}{{ post.title }} — {{ site.title }}{% endblock %}
+
+{% block content %}
+<article class="post-single">
+  <header class="post-header">
+    <h1>
+      {{ post.title }}
+      {% if post.draft %}<span class="draft-badge">DRAFT</span>{% endif %}
+    </h1>
+    <p class="post-meta">Published on <time datetime="{{ post.date }}">{{ post.date }}</time> by {{ site.author }}</p>
+    {% if post.tags %}
+    <div class="tag-list">
+      {% for t in post.tags %}
+        <a class="tag-pill" href="/tags/{{ t }}/">#{{ t }}</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if post.hero_webp %}
+      <img class="hero-img" src="{{ post.hero_webp }}" alt="{{ post.title }}">
+    {% elif post.hero %}
+      <img class="hero-img" src="{{ post.hero }}" alt="{{ post.title }}">
+    {% endif %}
+  </header>
+
+  <div class="post-content">
+    {{ post.body_html | safe }}
+  </div>
+
+  {% if site.comments_provider == "giscus" and site.comments_repo %}
+  <section class="comments-section">
+    <script src="https://giscus.app/client.js"
+            data-repo="{{ site.comments_repo }}"
+            data-mapping="pathname"
+            data-reactions-enabled="1"
+            data-theme="preferred_color_scheme"
+            crossorigin="anonymous"
+            async>
+    </script>
+  </section>
+  {% endif %}
+</article>
+{% endblock %}

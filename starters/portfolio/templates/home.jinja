@@ -1,0 +1,29 @@
+{% extends "skeleton.jinja" %}
+{% from "macros/cards.jinja" import post_card %}
+
+{% block title %}{{ site.title }} — Portfolio{% endblock %}
+
+{% block content %}
+<section class="hero-banner" style="margin-bottom: 2.5rem;">
+  <h1>{{ site.title }}</h1>
+  <p style="font-size: 1.15rem; color: var(--muted);">{{ site.description }} — Selected work by {{ site.author }}.</p>
+</section>
+
+<section>
+  <h2>Featured Projects</h2>
+  <div class="card-grid">
+    {% for post in projects %}
+      {{ post_card(post) }}
+    {% endfor %}
+  </div>
+</section>
+
+<section style="margin-top: 2.5rem;">
+  <h2>Recent Notes &amp; About</h2>
+  <div class="card-grid">
+    {% for post in posts %}
+      {{ post_card(post) }}
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

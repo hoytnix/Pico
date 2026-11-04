@@ -1,0 +1,25 @@
+/* Pico Offline Syntax Highlighting Styles */
+pre code.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 1.1rem 1.25rem;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-family: var(--code-font, 'JetBrains Mono', 'Fira Code', monospace);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-name { color: #c084fc; font-weight: 600; }
+.hljs-string, .hljs-attr, .hljs-symbol, .hljs-bullet, .hljs-addition { color: #34d399; }
+.hljs-title, .hljs-section, .hljs-function { color: #60a5fa; font-weight: 600; }
+.hljs-comment, .hljs-quote, .hljs-deletion, .hljs-meta { color: #64748b; font-style: italic; }
+.hljs-number, .hljs-literal, .hljs-variable, .hljs-template-variable, .hljs-type { color: #fbbf24; }
+.hljs-lang-badge {
+  float: right;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+  user-select: none;
+}

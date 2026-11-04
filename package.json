@@ -1,0 +1,32 @@
+{
+  "name": "pico",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Pico — Desktop Static Site Generator with Milkdown Crepe & MiniJinja",
+  "license": "Kopimi",
+  "type": "module",
+  "packageManager": "pnpm@12.15.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "build:frontend": "tsc --noEmit && vite build",
+    "build:bin": "tauri build --no-bundle",
+    "build:app": "tauri build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@milkdown/crepe": "^7.6.0",
+    "@milkdown/kit": "^7.6.0",
+    "@tauri-apps/api": "^2.2.0",
+    "@tauri-apps/plugin-dialog": "^2.2.0",
+    "@tauri-apps/plugin-fs": "^2.2.0",
+    "@tauri-apps/plugin-http": "^2.2.0",
+    "@tauri-apps/plugin-shell": "^2.2.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.2.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  }
+}

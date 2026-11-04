@@ -1,0 +1,237 @@
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::atomic::AtomicU64;
+use std::sync::{Arc, Mutex};
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NavItem {
+    pub label: String,
+    pub url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SiteConfig {
+    pub title: String,
+    pub base_url: String,
+    pub description: String,
+    pub author: String,
+    #[serde(default)]
+    pub nav: Vec<NavItem>,
+    #[serde(default)]
+    pub form_endpoint: String,
+    #[serde(default)]
+    pub comments_provider: String,
+    #[serde(default)]
+    pub comments_repo: String,
+}
+
+impl Default for SiteConfig {
+    fn default() -> Self {
+        Self {
+            title: "My Site".to_string(),
+            base_url: "https://example.com".to_string(),
+            description: "A Pico site".to_string(),
+            author: "Your Name".to_string(),
+            nav: vec![
+                NavItem {
+                    label: "Blog".to_string(),
+                    url: "/blog/".to_string(),
+                },
+                NavItem {
+                    label: "Projects".to_string(),
+                    url: "/projects/".to_string(),
+                },
+            ],
+            form_endpoint: String::new(),
+            comments_provider: String::new(),
+            comments_repo: String::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ModelField {
+    pub name: String,
+    pub label: String,
+    #[serde(rename = "type")]
+    pub field_type: String,
+    #[serde(default)]
+    pub required: bool,
+    #[serde(default)]
+    pub default: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ModelDef {
+    pub name: String,
+    pub label: String,
+    pub template: String,
+    pub list_template: String,
+    #[serde(default)]
+    pub fields: Vec<ModelField>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PostMeta {
+    pub title: String,
+    pub date: String,
+    pub slug: String,
+    pub draft: bool,
+    pub path: String,
+    pub url: String,
+    pub collection: String,
+    #[serde(default)]
+    pub excerpt: String,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub hero: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PostDocument {
+    pub frontmatter: Value,
+    pub markdown: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RecentSite {
+    pub title: String,
+    pub path: String,
+    pub last_opened: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SiteInfo {
+    pub path: String,
+    pub config: SiteConfig,
+    pub collections: Vec<ModelDef>,
+    pub recent_files: Vec<String>,
+    pub recent_sites: Vec<RecentSite>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BuildError {
+    pub file: String,
+    pub line: usize,
+    pub message: String,
+}
+
+impl std::fmt::Display for BuildError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.line > 0 {
+            write!(f, "{} (line {}): {}", self.file, self.line, self.message)
+        } else if !self.file.is_empty() {
+            write!(f, "{}: {}", self.file, self.message)
+        } else {
+            write!(f, "{}", self.message)
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BuildResult {
+    pub success: bool,
+    pub out_dir: String,
+    pub errors: Vec<BuildError>,
+    pub pages_built: usize,
+    pub images_generated: usize,
+    pub log: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VibeTarget {
+    pub kind: String, // "content" | "template" | "theme"
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VibeResult {
+    pub diff: String,
+    pub proposed: String,
+    #[serde(default)]
+    pub validation_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VariableDoc {
+    pub name: String,
+    pub kind: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemplateContextInfo {
+    pub template_path: String,
+    pub is_skeleton: bool,
+    pub is_macro: bool,
+    pub collection_label: Option<String>,
+    pub has_revert: bool,
+    pub variables: Vec<VariableDoc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublishResult {
+    pub success: bool,
+    pub message: String,
+    pub url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PersistedAppSettings {
+    #[serde(default = "default_llm_endpoint")]
+    pub llm_endpoint: String,
+    #[serde(default = "default_llm_model")]
+    pub llm_model: String,
+    #[serde(default)]
+    pub llm_api_key: String,
+    #[serde(default)]
+    pub github_token: String,
+    #[serde(default)]
+    pub recent_sites: Vec<RecentSite>,
+}
+
+pub fn default_llm_endpoint() -> String {
+    "https://api.openai.com/v1/chat/completions".to_string()
+}
+
+pub fn default_llm_model() -> String {
+    "gpt-4o-mini".to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppSettingsView {
+    pub llm_endpoint: String,
+    pub llm_model: String,
+    pub has_llm_key: bool,
+    pub has_github_token: bool,
+    pub storage_notice: String,
+}
+
+pub struct PreviewServerHandle {
+    pub port: u16,
+    pub out_dir: PathBuf,
+    pub revision: Arc<AtomicU64>,
+}
+
+pub struct AppState {
+    pub current_site: Mutex<Option<PathBuf>>,
+    pub template_backups: Mutex<HashMap<String, Vec<String>>>,
+    pub preview_server: Mutex<Option<PreviewServerHandle>>,
+    pub watcher_handle: Mutex<Option<notify::RecommendedWatcher>>,
+    pub preview_revision: Arc<AtomicU64>,
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        Self {
+            current_site: Mutex::new(None),
+            template_backups: Mutex::new(HashMap::new()),
+            preview_server: Mutex::new(None),
+            watcher_handle: Mutex::new(None),
+            preview_revision: Arc::new(AtomicU64::new(1)),
+        }
+    }
+}
