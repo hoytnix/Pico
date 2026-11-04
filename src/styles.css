@@ -31,26 +31,7 @@
     --pico-success: #22c55e;
   }
 
-  /* Milkdown Crepe Frame Dark Theme Variables following system (§3.3) */
-  .milkdown {
-    --crepe-color-background: #111827 !important;
-    --crepe-color-on-background: #e6e6e6 !important;
-    --crepe-color-surface: #0b0f19 !important;
-    --crepe-color-surface-low: #1e293b !important;
-    --crepe-color-on-surface: #d1d1d1 !important;
-    --crepe-color-on-surface-variant: #a9a9a9 !important;
-    --crepe-color-outline: #475569 !important;
-    --crepe-color-primary: #a5b4fc !important;
-    --crepe-color-secondary: #334155 !important;
-    --crepe-color-on-secondary: #e2e8f0 !important;
-    --crepe-color-inverse: #e5e5e5 !important;
-    --crepe-color-on-inverse: #1e293b !important;
-    --crepe-color-inline-code: #fb7185 !important;
-    --crepe-color-error: #f87171 !important;
-    --crepe-color-hover: #1e293b !important;
-    --crepe-color-selected: #334155 !important;
-    --crepe-color-inline-area: #1e293b !important;
-  }
+
 }
 
 * {
@@ -436,18 +417,7 @@ html, body {
   font-size: 13px;
 }
 
-/* Milkdown Crepe Container (§3.3) */
-.crepe-wrapper {
-  background: var(--pico-surface);
-  border: 1px solid var(--pico-border);
-  border-radius: 12px;
-  min-height: 460px;
-  padding: 8px 16px;
-}
 
-.crepe-wrapper .milkdown {
-  min-height: 420px;
-}
 
 /* Vibe Bar (§7) */
 .vibe-bar {

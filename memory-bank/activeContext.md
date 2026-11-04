@@ -1,36 +1,41 @@
 # Active Context: Pico
 
 ## Current Focus
-Duplicate Live Preview Server bug fix and mobile tab naming correction (Vibe / Preview / Code) are fully implemented, verified across narrow and wide viewports, and synchronized with the Memory Bank.
+Rebuilt Pico's frontend in React + CaffeineMD TipTap editor + AI SDK v7 Vibe multi-turn conversation, meeting all M84 one-shot prompt criteria without regressions.
 
 ## Recent State Changes
-1. **Duplicate Live Preview Server Bug Fix (M84 Prompt):**
-   - **Root Cause Resolution**:
-     - Removed duplicate preview mounting: `#pane-preview` (from persistent 3-pane shell) is now the single, authoritative mount point for live preview across all viewport widths. Duplicate `renderPreviewPane()` in `renderActiveTabPane()` was completely eliminated.
-     - Resolved CSS visibility conflict: `.studio-pane` on desktop (`≥ 768px`) now uses `.pane-active` visibility toggling rather than defaulting to `display: flex`, preventing `#pane-preview` and `#pane-code` from rendering simultaneously stacked in the DOM.
-     - Fixed transient state handling: The single Live Preview Server control bar renders "Starting preview server…" in the URL input while the server is initializing, and transitions smoothly in-place to the live URL (`http://127.0.0.1:<port>/`) once ready. It never leaves a stale empty bar or renders a second bar.
-   - **Tab Naming Correction (§2)**:
-     - Mobile / narrow tab bar is strictly standardized to:
-       1. **Vibe** (formerly Chat): Conversation area, prompt box, proposed edit, diff with Accept/Reject.
-       2. **Preview**: Live site preview with exactly ONE Live Preview Server control bar.
-       3. **Code** (formerly Files): Editing / file side (content posts, templates, models, assets, and site.yaml).
-     - Wide viewport top nav (Content, Models, Templates, Theme, Preview, Build & Export, Settings) remains intact and unmodified.
-   - **State & Server Preservation**:
-     - Switching between tabs on narrow viewports (375px) or desktop preserves Vibe conversation draft, pending Vibe diff, Code editor unsaved changes, Milkdown Crepe WYSIWYG editor state, and preview scroll position.
-     - Exactly one preview server/port is active per site. Switching sites properly stops polling and resets preview state.
-     - Grepping built site output in `out/` confirms 0 Pico chrome leakage.
-2. **Mobile AI Studio Layout Redesign (M84 Prompt):**
-   - Fixed bottom tab bar within thumb reach (64–72px height, 48px touch targets, `safe-area-inset-bottom` padding, pill highlight for active tab).
-   - Zero-remount 3-pane architecture (`#pane-vibe`, `#pane-preview`, `#pane-code`).
-   - App shell with `100dvh` and independent internal scrolling per pane.
-3. **Build & Test Verification:**
-   - `cargo test`: All 19 unit and integration tests pass cleanly (28.30s).
-   - `pnpm build`: `tsc --noEmit && vite build` completes with 0 errors.
-   - `pnpm run build:bin`: Compiles standalone release binary (`target/release/pico`, 31.5MB).
-   - Bundled `.deb` and `.rpm` packages built in `target/release/bundle/`.
-   - `README.md` and `/memory-bank/` updated with root cause, resolution details, and tab naming corrections.
+1. **Frontend Stack Migration:**
+   - Completely replaced vanilla TypeScript with **React 19 + TypeScript 5.9 + Vite 6.4**, packaged exclusively with `pnpm`.
+   - Purged `@milkdown/crepe`, `@milkdown/kit`, `@google/genai`, and vanilla mount code from `package.json`, styles, and `src/`.
+2. **CaffeineMD TipTap Editor Integration:**
+   - Ported TipTap v3 editor implementation directly from `../CaffeineMD` (`@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/pm`, `lowlight`, `highlight.js`).
+   - Integrated CaffeineMD markdown parser and serializer (`markdownToEditorHtml`, `editorHtmlToMarkdown`, `markdownTable`, `markdownInline`, `codeLanguageDetector`).
+   - Separated frontmatter completely into the Post Properties form, editing only the Markdown body in TipTap.
+   - Connected 300ms debounced auto-save to `picoApi.savePost` and external update handling via `editor.commands.setContent(..., { emitUpdate: false })` on Vibe Accept.
+   - Preserved CaffeineMD desktop dark theme and toolbar controls (headings popover, bold/italic/underline/strike, code blocks, lists, task checkboxes, GFM tables, image insertion, undo/redo).
+3. **AI SDK v7 Vibe Multi-Turn Conversation:**
+   - Replaced one-shot prompt-to-diff with full conversational assistant powered by Vercel AI SDK v7 (`ai` Core, `@ai-sdk/react`, `@ai-sdk/google`, `@ai-sdk/openai`).
+   - Frontend-direct architecture in webview with call-time key retrieval via `get_llm_key`. No Node server at runtime.
+   - Integrated `ToolLoopAgent` with 4 strictly allowed tools (`readContentFile`, `readTemplateFile`, `readThemeCss`, `proposeEdit`).
+   - Enforced tool approval gate (`toolApproval: { proposeEdit: 'user-approval' }`): assistant proposals render as unified diff cards with Accept/Reject buttons.
+   - Accept saves via normal save path (`savePost`, `saveTemplate`, `saveTheme`) and updates the active editor.
+   - Multi-turn conversation history, streaming responses, stop/regenerate, and no-key rule (`"Configure an LLM API key in Settings to use Vibe."`).
+4. **Desktop Layout & Navigation:**
+   - Desktop-only app. Bottom bar is the ONLY tab location containing exactly **Vibe**, **Preview**, and **Code** tabs. Topnav has zero tab buttons.
+   - Zero-remount persistent shell preserves chat history, composer drafts, pending diffs, editor content, and preview scroll across tab switches.
+   - Single authoritative Live Preview Server bar transitions empty → starting → live URL without duplicates.
+5. **Provider, Thinking & Grounding Controls:**
+   - Provider presets: `gemini-native`, `openai`, `openrouter`, `meta`, `gemini-openai`, `custom`.
+   - Thinking mapping: Gemini 3/4 (levels LOW/MEDIUM/HIGH, never MINIMAL/budget), Gemini 2.5 (budgets 1024/8192/24576), OpenAI (reasoning_effort), Muse Spark (disabled with note).
+   - Google Search Grounding: enabled ONLY on Gemini Native with sources panel under diff; disabled on others with exact text.
+   - Named error formatting for 401, 402, 404, 400, 429, timeout.
+6. **Build Verification:**
+   - `cargo test`: all 19 tests pass cleanly (28.64s).
+   - `pnpm build`: TypeScript and Vite bundle compiles with 0 errors.
+   - `cargo check`: backend compiles clean (0.19s).
+   - `pnpm run build:bin`: compiled standalone release binary `target/release/pico` (30.60s).
 
 ## Active Decisions & Considerations
-- Scope strictly confined to bug fix and tab naming correction (§2): build pipeline, MiniJinja rendering, Milkdown Crepe editing, model validation, and provider logic remain intact.
-- Zero CSS-only workarounds: duplicate render was removed at its source, not hidden with `display: none` while keeping multiple components mounted.
-- The app remains completely offline-first; network calls are strictly restricted to the user's selected LLM provider and optional GitHub Pages deployment.
+- Pico is a desktop application; navigation lives exclusively in the bottom bar with persistent pane mounting.
+- Frontmatter remains strictly in the visual Post Properties form; TipTap edits Markdown body only.
+- Vibe never auto-applies edits: every proposal goes through the unified diff card and explicit Accept/Reject gate.

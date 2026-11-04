@@ -12,11 +12,13 @@
 - **Asset Embedding:** `include_dir` (v0.7) for embedding all starter packs into the binary.
 - **Trash / Cleanup:** `trash` (v5) for native OS trash integration with fallback to file removal.
 
-### Frontend (TypeScript + Vite)
+### Frontend (React 19 + TypeScript + Vite)
+- **Framework:** React 19 (`react` 19.3, `react-dom` 19.3)
 - **TypeScript:** 5.9
-- **Bundler:** Vite 6.4
-- **WYSIWYG Editor:** `@milkdown/crepe` (7.23), `@milkdown/kit` (7.23).
-- **Google GenAI SDK:** `@google/genai` (2.32) for native Track 1 Gemini calls, thinking level mapping, and Google Search Grounding.
+- **Bundler:** Vite 6.4 with `@vitejs/plugin-react`
+- **WYSIWYG Editor:** `@tiptap/core` (3.32), `@tiptap/react` (3.32), `@tiptap/starter-kit` (3.32), `@tiptap/pm` (3.32), `lowlight` (3.3), `highlight.js` (11.12), ported from CaffeineMD.
+- **AI SDK v7:** `ai` (7.0.162), `@ai-sdk/react` (4.0.166), `@ai-sdk/google` (4.0.111), `@ai-sdk/openai` (4.0.108).
+- **Icons & UI:** `lucide-react` (0.553), `diff` (7.0).
 - **Package Manager:** `pnpm` exclusively (v12.15).
 
 ## Build & Distribution Scripts

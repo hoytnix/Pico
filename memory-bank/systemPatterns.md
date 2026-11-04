@@ -4,12 +4,13 @@
 
 ```mermaid
 flowchart TD
-    subgraph Frontend ["Frontend (Vanilla TS + Vite + Milkdown Crepe)"]
-        UI["Studio Shell (Tab Router & Modals)"]
-        Form["Model Form (Frontmatter)"]
-        Crepe["Milkdown Crepe Vanilla Hook"]
+    subgraph Frontend ["Frontend (React 19 + Vite + TipTap + AI SDK v7)"]
+        UI["Studio Shell (Desktop Bottom Tab Bar: Vibe / Preview / Code)"]
+        Form["Model Form (Frontmatter Isolation)"]
+        TipTap["TipTap Editor (Ported from CaffeineMD)"]
         TplEditor["Code Editor & Variable Inspector"]
-        DiffModal["Vibe Unified Diff Review"]
+        VibeChat["Vibe AI Multi-Turn Chat & Tool Approval"]
+        DiffCard["Unified Diff Review (Accept / Reject)"]
     end
 
     subgraph TauriBridge ["Tauri v2 IPC (Capabilities Scoped)"]
@@ -20,7 +21,6 @@ flowchart TD
         Pipeline["10-Step Build Pipeline"]
         Guardrails["MiniJinja Validator & Guardrails"]
         PreviewSrv["Axum Server + notify Watcher"]
-        VibeEngine["Vibe LLM Client & Diff Engine"]
         Storage["Settings & Embedded Starters (include_dir)"]
     end
 
@@ -35,14 +35,14 @@ flowchart TD
 
     UI --> IPC
     Form --> IPC
-    Crepe --> IPC
+    TipTap --> IPC
     TplEditor --> IPC
-    DiffModal --> IPC
+    VibeChat --> DiffCard
+    DiffCard --> IPC
 
     IPC --> Pipeline
     IPC --> Guardrails
     IPC --> PreviewSrv
-    IPC --> VibeEngine
     IPC --> Storage
 
     Pipeline --> FileSystem
@@ -52,35 +52,29 @@ flowchart TD
 
 ## State Machine & Lifecycles
 
-### 1. Editor Lifecycle (`useCrepeEditorEffect`)
-- Mounted without React/Vue wrappers into a vanilla DOM node.
-- Debounced auto-save triggers 2 seconds after the user stops typing.
-- On save, frontmatter is validated against the model schema, formatted into YAML headers, concatenated with clean Markdown body, and saved to disk.
-- Unsaved changes flag prompts the user before switching sites or closing the application.
+### 1. TipTap Editor Lifecycle (Ported from CaffeineMD)
+- Mounted cleanly inside React via `@tiptap/react` (`useEditor` + `EditorContent`).
+- Markdown body loaded via `markdownToEditorHtml`. Frontmatter is isolated in the Post Properties form.
+- Debounced auto-save (300ms) marks post Unsaved until Tauri's `save_post` succeeds.
+- External updates (switching posts, Vibe Accept) invoke `editor.commands.setContent(targetHtml, { emitUpdate: false })` without remounting the editor or losing cursor focus.
 
-### 2. Template Guardrail Pattern
+### 2. Vibe Conversational AI & Tool Approval Pattern
+- Built with official Vercel AI SDK v7 (`ai` Core, `@ai-sdk/react`, `@ai-sdk/google`, `@ai-sdk/openai`).
+- Frontend-direct execution inside the Tauri webview; keys obtained at call-time via IPC (`get_llm_key`).
+- Strictly limited to 4 tools: `readContentFile`, `readTemplateFile`, `readThemeCss`, `proposeEdit`.
+- Tool approval gate: `toolApproval: { proposeEdit: 'user-approval' }`. Edits are NEVER applied autonomously. Proposed edits display as unified diff cards with **Accept & Save** and **Reject**.
+- Multi-turn conversation history, streaming assistant replies, and strict no-key safety rule.
+
+### 3. Template Guardrail Pattern
 - Dotted variables inside `{{ ... }}` and `{% ... %}` (e.g. `post.author_bio`, `site.unknown`) are checked against allowed model fields and `site.yaml` properties.
 - In `macros/*.jinja`, `varargs` and `kwargs` are prohibited; top-level HTML outside `{% macro %}` is rejected.
-- On save, the previous version is backed up in memory (`AppState.template_backups`) and on disk (`.pico_history/templates/`).
-- One-click Revert restores the exact previous version without requiring Git.
+- On save, the previous version is backed up on disk and in memory. One-click Revert restores the exact previous version.
 
-### 3. Atomic Build Pipeline Pattern (§6)
+### 4. Atomic Build Pipeline Pattern
 - Compilation always builds into `out.tmp/`.
 - If any validation or render errors occur, `out.tmp/` is purged and errors are reported to the GUI with file and line. The previous working `out/` folder is left untouched.
-- On success, `out.tmp/` is atomically renamed or swapped into `out/`.
+- On success, `out.tmp/` is atomically swapped into `out/`.
 
-### 4. Zero-Dependency Embedded Starters Pattern
-- `static EMBEDDED_STARTERS: Dir = include_dir!("$CARGO_MANIFEST_DIR/../starters")`.
-- `create_site_impl` checks disk directory first; if absent (standalone distributed binary), it extracts from embedded memory into the target directory.
-
-### 5. Dual-Track LLM Provider & Vibe Architecture Pattern
-- **Track 1 — Gemini Native (Frontend TS via `@google/genai`):**
-  - Fetches key strictly at call-time via IPC (`get_llm_key`).
-  - Native Google Search Grounding toggle with web sources extraction (`groundingMetadata.groundingChunks`).
-  - Precise thinking level mapping (`thinkingLevel: "LOW" | "MEDIUM" | "HIGH"` on Gemini 3/4; `thinkingBudget: 1024 | 8192 | 24576` on Gemini 2.5).
-  - Clean text extraction: filters out thought parts (`part.thought === true`) so internal reasoning is never injected into user markdown.
-- **Track 2 — OpenAI-Compatible Providers (Rust Backend):**
-  - High-throughput client POSTing standard chat completion payloads to `{base_url}/chat/completions`.
-  - Presets for OpenAI (`gpt-4o-mini`), OpenRouter (vendor-prefixed with `HTTP-Referer` and `X-Title: Pico` headers), Muse Spark (`https://api.meta.ai/v1`, thinking disabled), Gemini OpenAI mode, and Custom HTTPS endpoints.
-  - Honest gating: rejects grounding if forced on non-Gemini Native providers.
-  - Safe key isolation: stores keys per-provider in `~/.config/pico/settings.json`, never echoes keys in settings view or logs, and disables Vibe when no key is set.
+### 5. Zero-Remount Desktop 3-Tab Shell Pattern
+- Tab order: **Vibe**, **Preview**, **Code** strictly in the bottom desktop dock. Topnav contains zero tab buttons.
+- All three views remain permanently mounted; CSS display toggling ensures zero-remount state preservation across tab switches.
