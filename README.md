@@ -6,13 +6,107 @@
 
 ## Deviations from prompt
 
-None. Every locked decision in §2 is implemented as specified:
-- **App name:** Pico
-- **Stack:** Rust + Tauri v2 + MiniJinja + Milkdown (Crepe) + Markdown documents with YAML frontmatter on disk.
-- **Frontend:** Vanilla TypeScript + Vite (no React/Vue/Svelte framework). Milkdown Crepe is mounted directly as a vanilla instance in a `useEffect`-style lifecycle hook (`useCrepeEditorEffect` in `src/crepeHook.ts`).
-- **Package manager:** `pnpm` exclusively.
-- **Templating engine:** MiniJinja (`minijinja` v2) with runtime loading, HTML autoescaping, fuel limits, and model-based variable guardrails.
-- **Editor:** Milkdown with Crepe built-in (`Frame` theme, light + dark following system), floating toolbar, slash `/` menu, block drag handles, tables, task lists, CodeMirror code blocks with language picker & syntax highlighting, and non-base64 local file image uploads.
+No deviations.
+
+---
+
+## Mobile AI Studio Layout
+
+Pico features an adaptive dual layout inspired by the mobile experience of Google AI Studio:
+
+- **Narrow Viewports (`< 768px`)**: Top navigation is replaced with a fixed bottom tab bar placed within thumb reach, featuring exactly three tabs — **Chat**, **Preview**, and **Files**.
+- **Wide Viewports (`≥ 768px`)**: Standard desktop navigation remains intact (Content, Models, Templates, Theme, Preview, Build & Export, Settings), and the mobile bottom tab bar is hidden.
+- **Zero-Remount State Preservation**: Switching between tabs never remounts panes or reloads components. Milkdown Crepe WYSIWYG editor content and unsaved edits, chat drafts, pending Vibe unified diffs (with Accept/Reject buttons), preview scroll position, and file selections all survive tab switches.
+
+### Three-Tab Navigation Mapping
+
+| Bottom Tab | What It Contains in Pico | Pico Screens & Workflows That Live Here |
+|---|---|---|
+| **Chat** | The Vibe AI assistant conversation: prompt composer, proposed edits, and unified diff review. | - Vibe prompt composer + unified diff + **Accept & Save** / **Reject & Discard** for the active target (post, template, or theme).<br>- Target and Provider/Model indicator in header.<br>- Strict no-key rule: when no provider key is configured, displays exact text: `"Configure an LLM API key in Settings to use Vibe."`<br>- Pending diffs survive tab switches.<br>- Sticky composer positioned above the tab bar. |
+| **Preview** | Live Axum preview server, unchanged in content and behavior. | - Live Axum preview (localhost URL, 300ms debounced live reload, `DRAFT` badges on draft posts in preview only).<br>- **Build Site** and **Export** actions live directly in the Preview header for instant access without tab switching. |
+| **Files** | Site file and collection browser (AI Studio Files/Artifacts pane equivalent). | - **Content Posts**: Browse collections and posts; tap a post to edit frontmatter and body in Milkdown Crepe (Vibe box routes to Chat with target = content).<br>- **Templates**: `templates/*.jinja` and `macros/*.jinja`; tap to edit with guardrail validation & one-click revert (Vibe box routes to Chat with target = template).<br>- **Models**: Visual collection schema editor (`models/*.yaml`), field schema table, and type pickers preserved intact.<br>- **Theme**: `assets/theme.css` editor and CSS variable controls (Vibe box routes to Chat with target = theme).<br>- **Site Configuration**: Visual `site.yaml` editor.<br>- **Assets**: `assets/` media browser and disk image importer.<br>- **Header Actions**: Site Switcher, New Site, and Settings gear icon (opens LLM and Site settings). |
+
+### App Shell & Internal Scrolling (§5)
+
+- **Viewport Fill**: Uses `100dvh` (with `100vh` fallback) and `overflow: hidden` on the root shell to eliminate mobile chrome jumping and dual scrollbars.
+- **Dedicated Internal Scrolling**: Each pane (Chat conversation, Preview iframe container, and Files browser/editor) scrolls independently (`overflow-y: auto`). There is never a document-level scrollbar.
+- **Safe-Area Inset & Thumb Reach**: The bottom tab bar is fixed at 64–72px height with `safe-area-inset-bottom` padding to avoid home indicator clipping. All scrollable panes have bottom padding matching the tab bar height plus safe-area inset so content is never hidden behind the navigation. Touch targets are a minimum of 48px.
+- **Accessibility**: Tabs use semantic `<button role="tab">` elements in a `role="tablist"` container with live `aria-selected` attributes and keyboard navigation (ArrowLeft, ArrowRight, Home, End). Active state is distinguished via pill background and font weight, never color alone.
+
+---
+
+## LLM Providers
+
+Pico features dual-track LLM architecture behind a unified Vibe interface:
+- **Track 1 (Gemini Native):** First-class Google Gemini integration using the official `@google/genai` TypeScript SDK in the frontend, enabling Google Search Grounding with web citations and native thinking level/budget controls.
+- **Track 2 (OpenAI-compatible):** High-performance Rust backend client POSTing to `{base_url}/chat/completions` for OpenAI, OpenRouter, Meta Muse Spark, Gemini in OpenAI mode, and user-configured custom endpoints.
+
+### Provider Presets
+
+| Provider ID | Label in UI | Base URL | Default Models | Key Label & Dashboard Link |
+|---|---|---|---|---|
+| `gemini-native` | Gemini (Native) | `https://generativelanguage.googleapis.com/v1beta` | `gemini-4-argon`, `gemini-3-flash-preview`, `gemini-2.5-flash` | Gemini API key — [Google AI Studio](https://aistudio.google.com/app/apikey) |
+| `openai` | OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` | OpenAI API key — [OpenAI Platform](https://platform.openai.com/api-keys) |
+| `openrouter` | OpenRouter | `https://openrouter.ai/api/v1` | Custom model text field required (e.g. `google/...`, `meta/...`) | OpenRouter API key — [OpenRouter Keys](https://openrouter.ai/keys) (Sends `HTTP-Referer` and `X-Title: Pico` headers) |
+| `meta` | Muse Spark | `https://api.meta.ai/v1` | `muse-spark-1.3`, `muse-spark-1.3-contributor`, `muse-wonder-1.0` | Model API key — [Meta Model API Dashboard](https://api.meta.ai/dashboard/keys) |
+| `gemini-openai` | Gemini (OpenAI mode) | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-4-argon`, `gemini-2.5-flash` | Gemini API key — [Google AI Studio](https://aistudio.google.com/app/apikey) |
+| `custom` | Custom (OpenAI-compatible) | User-entered (`https://` required; `http://localhost:*` or `http://127.0.0.1:*` allowed for local dev) | Custom model text field | Custom API key |
+
+> [!NOTE]
+> Keys are stored separately per provider in `~/.config/pico/settings.json` and are sent only to the active provider's endpoint at call time. The UI displays `SET` or `NOT SET` badges and never renders raw keys.
+
+### Thinking Level Controls
+
+The Thinking dropdown (Low / Medium / High, default: Medium) maps controls according to provider and model capabilities:
+
+| Track / Model Family | Low | Medium | High | Forbidden Parameters |
+|---|---|---|---|---|
+| **Gemini Native (Gemini 3 & 4)**, including `gemini-4-argon` | `thinkingConfig.thinkingLevel: "LOW"` | `"MEDIUM"` | `"HIGH"` | `thinkingLevel: "MINIMAL"`, any `thinkingBudget` (both return HTTP 400 on Gemini 4) |
+| **Gemini Native (Gemini 2.5)** | `thinkingConfig.thinkingBudget: 1024` | `8192` | `24576` | `thinkingLevel` (2.5 uses token budgets, not levels) |
+| **OpenAI Track** (`openai`, `openrouter`, `gemini-openai`, `custom`) | `reasoning_effort: "low"` | `"medium"` | `"high"` | `thinkingConfig` in the same request as `reasoning_effort` |
+| **Muse Spark** (`meta`) | Thinking dropdown is **disabled** with note: *"Muse Spark manages its own reasoning."* | Same | Same | Do not send `reasoning_effort` to Meta (Muse Spark manages reasoning internally; sending effort risks HTTP 400) |
+
+- **Default behavior:** If no thinking value is explicitly selected (or set to Default), Pico omits thinking parameters and lets the provider apply its model default.
+- **Cost notice:** Settings displays *"Higher thinking may increase cost and time to first token."*
+
+### Google Search Grounding (Gemini Native ONLY)
+
+- **Honest Gating:** The Google Search Grounding toggle is enabled **only** when Provider is set to `Gemini (Native)`. For all OpenAI-track providers, the toggle is disabled in the GUI with the note: *"Grounding requires Gemini Native, not an OpenAI provider."*
+- **Backend Rejection:** If a forced request attempts to enable grounding on a non-Gemini Native provider, the backend rejects it with: *"Grounding requires Gemini Native, not an OpenAI provider."*
+- **Sources Panel:** When grounding is enabled and sources are returned in `groundingMetadata.groundingChunks`, Pico renders a dedicated **Google Search Grounding Sources** panel below the unified diff with clickable links opening in the default browser. Citations are never auto-inserted into the Markdown file unless present in the LLM's proposed text.
+
+### Test Connection
+
+- In **Settings**, clicking **Test Connection** executes a lightweight 1-token call to `{current provider, current model}` using that provider's saved key.
+- **Inline Success:** Displays `Success: Connection to {model} succeeded in {elapsed_ms}ms.`
+- **Inline Error:** Surfaces mapped, human-readable error messages:
+  - **401 / Invalid Key:** `"Invalid API key for {provider}. Check the key in Settings."`
+  - **402 / Muse Billing:** `"Muse Spark billing limit reached or payment method missing. Visit the Meta Model API dashboard."`
+  - **404 / Model Not Found:** `"Model {model} was not found for {provider}. Check the model ID or pick another model."`
+  - **400 / Thinking Incompatible:** `"Thinking setting is not supported for this model/provider combination."`
+  - **429 / Rate Limit:** `"Rate limited by {provider}. Wait and retry."`
+  - **Network / Timeout:** `"Could not reach {provider}. Check your connection and the base URL, then retry."`
+- A notice beside the button reminds users: *"A test call may incur a small provider charge."*
+
+### Settings Migration
+
+Existing `settings.json` files from earlier single-endpoint Pico builds are automatically migrated upon startup:
+- The legacy `llm_endpoint`, `llm_model`, and `llm_api_key` are assigned to the `openai` provider entry.
+- The user's active provider defaults to `openai` if migrated, preserving existing workflows without data loss.
+- Gemini and Muse Spark provider entries remain unconfigured until the user explicitly sets keys for them.
+
+### Verification Status: Live vs. Error-Path
+
+- **Automated Tests:** 19 Rust unit/integration tests (`cargo test`) pass with 0 failures, covering:
+  - Provider registry definitions, URLs, and order.
+  - Strict base URL validation (`https://` enforcement, local loopback exceptions).
+  - Exact thinking parameter mappings across Gemini 3/4, Gemini 2.5, OpenAI, and Muse Spark.
+  - Google Search Grounding gating and rejection.
+  - Isolated provider key routing via mock HTTP server (verifying each provider receives its own key and headers).
+  - Legacy `settings.json` migration.
+  - Named error message formatting (401, 402, 404, 400, 429, timeout).
+- **Frontend Verification:** `pnpm build` (`tsc --noEmit && vite build`) compiles with zero TypeScript errors.
+- **Live vs. Mock Execution:** As no live commercial API credentials were provided in the test environment, live external network calls were not performed during automated testing. All provider paths, headers, payload structures, and error states were validated via offline mock HTTP servers and error-path unit tests. Pico never fakes LLM responses.
 
 ---
 

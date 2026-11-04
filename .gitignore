@@ -12,6 +12,11 @@ out/
 out.tmp/
 .pico_history/
 
+# Settings & API Keys (never commit or track local keys)
+settings.json
+**/.config/pico/settings.json
+*.key
+
 # Environment / OS
 .DS_Store
 Thumbs.db

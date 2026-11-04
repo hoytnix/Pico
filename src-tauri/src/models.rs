@@ -148,11 +148,155 @@ pub struct VibeTarget {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroundingSource {
+    pub title: String,
+    pub url: String,
+    #[serde(default)]
+    pub snippet: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VibeResult {
     pub diff: String,
     pub proposed: String,
     #[serde(default)]
     pub validation_error: Option<String>,
+    #[serde(default)]
+    pub sources: Option<Vec<GroundingSource>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct VibeOptions {
+    #[serde(default)]
+    pub provider: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub thinking: Option<String>,
+    #[serde(default)]
+    pub grounding: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VibeContext {
+    pub original_content: String,
+    pub system_prompt: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProviderInfo {
+    pub id: String,
+    pub label: String,
+    pub base_url: String,
+    pub default_models: Vec<String>,
+    pub key_label: String,
+    pub key_url: String,
+    pub supports_thinking: bool,
+    pub supports_grounding: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProviderSettings {
+    #[serde(default)]
+    pub api_key: String,
+    #[serde(default)]
+    pub base_url: String,
+    #[serde(default)]
+    pub model: String,
+    #[serde(default)]
+    pub custom_model: String,
+    #[serde(default = "default_thinking_str")]
+    pub thinking: String,
+    #[serde(default)]
+    pub grounding: bool,
+}
+
+fn default_thinking_str() -> String {
+    "medium".to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProviderView {
+    pub id: String,
+    pub base_url: String,
+    pub model: String,
+    pub custom_model: String,
+    pub effective_model: String,
+    pub thinking: String,
+    pub grounding: bool,
+    pub key_status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LlmSettingsView {
+    pub current_provider: String,
+    pub providers: HashMap<String, ProviderView>,
+    pub github_token: String,
+    pub has_github_token: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProviderUpdate {
+    pub id: String,
+    #[serde(default)]
+    pub base_url: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub custom_model: Option<String>,
+    #[serde(default)]
+    pub thinking: Option<String>,
+    #[serde(default)]
+    pub grounding: Option<bool>,
+    #[serde(default)]
+    pub api_key: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SaveLlmSettingsInput {
+    #[serde(default)]
+    pub current_provider: String,
+    #[serde(default)]
+    pub provider_updates: Vec<ProviderUpdate>,
+    #[serde(default)]
+    pub base_url: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub custom_model: Option<String>,
+    #[serde(default)]
+    pub thinking: Option<String>,
+    #[serde(default)]
+    pub grounding: Option<bool>,
+    #[serde(default)]
+    pub api_key: Option<String>,
+    #[serde(default)]
+    pub github_token: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestConnectionResult {
+    pub success: bool,
+    pub model: String,
+    pub elapsed_ms: u64,
+    #[serde(default)]
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct LlmAppSettings {
+    #[serde(default = "default_current_provider")]
+    pub current_provider: String,
+    #[serde(default)]
+    pub providers: HashMap<String, ProviderSettings>,
+    #[serde(default)]
+    pub github_token: String,
+    #[serde(default)]
+    pub recent_sites: Vec<RecentSite>,
+}
+
+fn default_current_provider() -> String {
+    "gemini-native".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

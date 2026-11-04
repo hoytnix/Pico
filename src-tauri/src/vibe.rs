@@ -98,6 +98,7 @@ pub fn evaluate_vibe_proposal(
                 diff,
                 proposed: body_only,
                 validation_error: None,
+                sources: None,
             })
         }
         "template" => {
@@ -116,6 +117,7 @@ pub fn evaluate_vibe_proposal(
                 diff,
                 proposed: cleaned,
                 validation_error,
+                sources: None,
             })
         }
         "theme" => {
@@ -136,10 +138,24 @@ pub fn evaluate_vibe_proposal(
                 diff,
                 proposed: cleaned,
                 validation_error,
+                sources: None,
             })
         }
         other => Err(format!("Unknown Vibe target kind '{}'", other)),
     }
+}
+
+/// Evaluates a proposal with optional grounding sources attached.
+pub fn evaluate_vibe_proposal_with_sources(
+    site_root: &Path,
+    target: &VibeTarget,
+    original_content: &str,
+    raw_llm_output: &str,
+    sources: Option<Vec<crate::models::GroundingSource>>,
+) -> Result<VibeResult, String> {
+    let mut res = evaluate_vibe_proposal(site_root, target, original_content, raw_llm_output)?;
+    res.sources = sources;
+    Ok(res)
 }
 
 /// Reads the current file content for a `VibeTarget`.

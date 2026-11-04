@@ -16,6 +16,7 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@google/genai": "^2.32.0",
     "@milkdown/crepe": "^7.6.0",
     "@milkdown/kit": "^7.6.0",
     "@tauri-apps/api": "^2.2.0",

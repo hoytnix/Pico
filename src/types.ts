@@ -82,10 +82,82 @@ export interface VibeTarget {
   path: string;
 }
 
+export interface GroundingSource {
+  title: string;
+  url: string;
+  snippet?: string | null;
+}
+
+export interface VibeOptions {
+  provider?: string;
+  model?: string;
+  thinking?: string;
+  grounding?: boolean;
+}
+
 export interface VibeResult {
   diff: string;
   proposed: string;
   validation_error?: string | null;
+  sources?: GroundingSource[] | null;
+}
+
+export interface ProviderInfo {
+  id: string;
+  label: string;
+  base_url: string;
+  default_models: string[];
+  key_label: string;
+  key_url: string;
+  supports_thinking: boolean;
+  supports_grounding: boolean;
+}
+
+export interface ProviderView {
+  id: string;
+  base_url: string;
+  model: string;
+  custom_model: string;
+  effective_model: string;
+  thinking: string;
+  grounding: boolean;
+  key_status: "SET" | "NOT SET" | string;
+}
+
+export interface LlmSettingsView {
+  current_provider: string;
+  providers: Record<string, ProviderView>;
+  github_token: string;
+  has_github_token: boolean;
+}
+
+export interface ProviderUpdate {
+  id: string;
+  base_url?: string;
+  model?: string;
+  custom_model?: string;
+  thinking?: string;
+  grounding?: boolean;
+  api_key?: string;
+}
+
+export interface SaveLlmSettingsInput {
+  current_provider: string;
+  provider_updates?: ProviderUpdate[];
+  base_url?: string;
+  model?: string;
+  custom_model?: string;
+  thinking?: string;
+  grounding?: boolean;
+  api_key?: string;
+  github_token?: string;
+}
+
+export interface TestConnectionResult {
+  success: boolean;
+  model: string;
+  elapsed_ms: number;
+  error?: string | null;
 }
 
 export interface VariableDoc {

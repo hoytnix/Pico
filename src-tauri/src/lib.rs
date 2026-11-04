@@ -1,4 +1,5 @@
 pub mod builder;
+pub mod llm;
 pub mod models;
 pub mod preview;
 pub mod publish;
@@ -10,9 +11,11 @@ use crate::builder::{
     resolve_collection_folder,
 };
 use crate::models::{
-    AppSettingsView, AppState, BuildResult, ModelDef, ModelField, PersistedAppSettings, PostDocument,
-    PostMeta, PreviewServerHandle, PublishResult, RecentSite, SiteConfig, SiteInfo,
-    TemplateContextInfo, VariableDoc, VibeResult, VibeTarget,
+    AppSettingsView, AppState, BuildResult, GroundingSource, LlmAppSettings, LlmSettingsView,
+    ModelDef, ModelField, PersistedAppSettings, PostDocument, PostMeta, PreviewServerHandle,
+    ProviderInfo, PublishResult, RecentSite, SaveLlmSettingsInput, SiteConfig, SiteInfo,
+    TemplateContextInfo, TestConnectionResult, VariableDoc, VibeContext, VibeOptions, VibeResult,
+    VibeTarget,
 };
 use crate::preview::{start_axum_preview_server, start_site_watcher};
 use crate::publish::publish_to_github_pages;
@@ -20,7 +23,7 @@ use crate::validation::{
     BUILTIN_ITEM_FIELDS, SITE_CONFIG_FIELDS, parse_markdown_document, serialize_markdown_document,
     slugify, validate_frontmatter, validate_template_with_models,
 };
-use crate::vibe::run_vibe_edit_with_llm;
+use crate::vibe::{build_vibe_system_prompt, read_vibe_target_content};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
@@ -29,7 +32,7 @@ use std::sync::atomic::Ordering;
 use tauri::State;
 use walkdir::WalkDir;
 
-fn app_config_file_path() -> PathBuf {
+pub fn app_config_file_path() -> PathBuf {
     let base = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .map(PathBuf::from)
@@ -39,30 +42,79 @@ fn app_config_file_path() -> PathBuf {
     dir.join("settings.json")
 }
 
-pub fn load_persisted_settings() -> PersistedAppSettings {
+pub fn load_persisted_llm_settings() -> LlmAppSettings {
     let path = app_config_file_path();
     if let Ok(raw) = fs::read_to_string(&path) {
-        if let Ok(parsed) = serde_json::from_str::<PersistedAppSettings>(&raw) {
-            return parsed;
+        if let Ok(migrated) = crate::llm::migrate_settings_json(&raw) {
+            return migrated;
         }
     }
-    PersistedAppSettings {
-        llm_endpoint: crate::models::default_llm_endpoint(),
-        llm_model: crate::models::default_llm_model(),
-        llm_api_key: String::new(),
+    LlmAppSettings {
+        current_provider: crate::llm::PROVIDER_GEMINI_NATIVE.to_string(),
+        providers: crate::llm::create_default_providers_map(),
         github_token: String::new(),
         recent_sites: Vec::new(),
     }
 }
 
-pub fn save_persisted_settings(settings: &PersistedAppSettings) -> Result<(), String> {
+pub fn save_persisted_llm_settings(settings: &LlmAppSettings) -> Result<(), String> {
     let path = app_config_file_path();
     let json = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
     fs::write(&path, json).map_err(|e| format!("Failed to save app settings: {}", e))
 }
 
+pub fn load_persisted_settings() -> PersistedAppSettings {
+    let llm = load_persisted_llm_settings();
+    let (ep, md, key) = if let Some(p) = llm.providers.get(&llm.current_provider) {
+        let effective_m = if !p.custom_model.trim().is_empty() {
+            p.custom_model.clone()
+        } else {
+            p.model.clone()
+        };
+        (p.base_url.clone(), effective_m, p.api_key.clone())
+    } else {
+        (
+            crate::models::default_llm_endpoint(),
+            crate::models::default_llm_model(),
+            String::new(),
+        )
+    };
+    PersistedAppSettings {
+        llm_endpoint: ep,
+        llm_model: md,
+        llm_api_key: key,
+        github_token: llm.github_token,
+        recent_sites: llm.recent_sites,
+    }
+}
+
+pub fn save_persisted_settings(settings: &PersistedAppSettings) -> Result<(), String> {
+    let mut llm = load_persisted_llm_settings();
+    llm.github_token = settings.github_token.clone();
+    llm.recent_sites = settings.recent_sites.clone();
+    let current_prov = if llm.current_provider.is_empty() {
+        crate::llm::PROVIDER_OPENAI.to_string()
+    } else {
+        llm.current_provider.clone()
+    };
+    let entry = llm.providers.entry(current_prov).or_insert_with(|| crate::models::ProviderSettings {
+        api_key: String::new(),
+        base_url: settings.llm_endpoint.clone(),
+        model: settings.llm_model.clone(),
+        custom_model: String::new(),
+        thinking: "medium".to_string(),
+        grounding: false,
+    });
+    entry.base_url = settings.llm_endpoint.clone();
+    entry.model = settings.llm_model.clone();
+    if !settings.llm_api_key.trim().is_empty() {
+        entry.api_key = settings.llm_api_key.trim().to_string();
+    }
+    save_persisted_llm_settings(&llm)
+}
+
 fn record_recent_site(site_root: &Path, title: &str) -> Vec<RecentSite> {
-    let mut settings = load_persisted_settings();
+    let mut settings = load_persisted_llm_settings();
     let canonical = site_root
         .canonicalize()
         .unwrap_or_else(|_| site_root.to_path_buf())
@@ -82,7 +134,7 @@ fn record_recent_site(site_root: &Path, title: &str) -> Vec<RecentSite> {
     if settings.recent_sites.len() > 12 {
         settings.recent_sites.truncate(12);
     }
-    let _ = save_persisted_settings(&settings);
+    let _ = save_persisted_llm_settings(&settings);
     settings.recent_sites
 }
 
@@ -1119,11 +1171,162 @@ async fn publish_github_pages(state: State<'_, AppState>) -> Result<PublishResul
 async fn vibe_edit(
     target: VibeTarget,
     prompt: String,
+    options: Option<VibeOptions>,
     state: State<'_, AppState>,
 ) -> Result<VibeResult, String> {
     let site_root = require_current_site(&state)?;
-    let settings = load_persisted_settings();
-    run_vibe_edit_with_llm(&site_root, &target, &prompt, &settings).await
+    let settings = load_persisted_llm_settings();
+    let opts = options.unwrap_or_default();
+    let provider_id = opts
+        .provider
+        .clone()
+        .unwrap_or_else(|| settings.current_provider.clone());
+
+    if provider_id == crate::llm::PROVIDER_GEMINI_NATIVE {
+        let prov = settings.providers.get(&provider_id).ok_or_else(|| {
+            format!("Provider '{}' not found in settings.", provider_id)
+        })?;
+        if prov.api_key.trim().is_empty() {
+            return Err("Configure an LLM API key in Settings to use Vibe.".to_string());
+        }
+        let original_content = read_vibe_target_content(&site_root, &target)?;
+        let system_prompt = build_vibe_system_prompt(&site_root, &target)?;
+        let user_msg = format!(
+            "{}\n\nInstruction: {}\n\nCurrent file (`{}`):\n{}",
+            system_prompt,
+            prompt.trim(),
+            target.path,
+            original_content
+        );
+        let model = opts
+            .model
+            .as_ref()
+            .filter(|m| !m.trim().is_empty())
+            .unwrap_or_else(|| {
+                if !prov.custom_model.trim().is_empty() {
+                    &prov.custom_model
+                } else {
+                    &prov.model
+                }
+            });
+        let endpoint = format!(
+            "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
+            model,
+            prov.api_key.trim()
+        );
+        let thinking = opts.thinking.as_deref().unwrap_or(&prov.thinking);
+        let grounding = opts.grounding.unwrap_or(prov.grounding);
+        let mapped_thinking = crate::llm::map_thinking_setting(&provider_id, model, thinking)?;
+        let mut config_obj = serde_json::Map::new();
+        if grounding {
+            config_obj.insert(
+                "tools".to_string(),
+                serde_json::json!([{ "googleSearch": {} }]),
+            );
+        }
+        match mapped_thinking {
+            crate::llm::ThinkingMapping::GeminiLevel(lvl) => {
+                config_obj.insert(
+                    "thinkingConfig".to_string(),
+                    serde_json::json!({ "thinkingLevel": lvl }),
+                );
+            }
+            crate::llm::ThinkingMapping::GeminiBudget(budget) => {
+                config_obj.insert(
+                    "thinkingConfig".to_string(),
+                    serde_json::json!({ "thinkingBudget": budget }),
+                );
+            }
+            _ => {}
+        }
+        let payload = serde_json::json!({
+            "contents": [{ "parts": [{ "text": user_msg }] }],
+            "generationConfig": serde_json::Value::Object(config_obj)
+        });
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(120))
+            .build()
+            .unwrap_or_default();
+        let resp = client
+            .post(&endpoint)
+            .json(&payload)
+            .send()
+            .await
+            .map_err(|e| {
+                crate::llm::format_provider_error(&provider_id, model, None, &e.to_string())
+            })?;
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(crate::llm::format_provider_error(
+                &provider_id,
+                model,
+                Some(status.as_u16()),
+                &body,
+            ));
+        }
+        let json_val: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| format!("Invalid JSON response from Gemini API: {}", e))?;
+
+        let mut text_parts = Vec::new();
+        if let Some(parts) = json_val
+            .pointer("/candidates/0/content/parts")
+            .and_then(|v| v.as_array())
+        {
+            for part in parts {
+                let is_thought = part.get("thought").and_then(|v| v.as_bool()).unwrap_or(false);
+                if !is_thought {
+                    if let Some(txt) = part.get("text").and_then(|v| v.as_str()) {
+                        text_parts.push(txt);
+                    }
+                }
+            }
+        }
+        let proposed_raw = text_parts.join("");
+        let mut sources = Vec::new();
+        if let Some(chunks) = json_val
+            .pointer("/candidates/0/groundingMetadata/groundingChunks")
+            .and_then(|v| v.as_array())
+        {
+            for chunk in chunks {
+                if let Some(web) = chunk.get("web") {
+                    let title = web
+                        .get("title")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("Grounding Source")
+                        .to_string();
+                    let url = web.get("uri").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    if !url.is_empty() {
+                        sources.push(GroundingSource {
+                            title,
+                            url,
+                            snippet: None,
+                        });
+                    }
+                }
+            }
+        }
+        let sources_opt = if grounding { Some(sources) } else { None };
+        crate::vibe::evaluate_vibe_proposal_with_sources(
+            &site_root,
+            &target,
+            &original_content,
+            &proposed_raw,
+            sources_opt,
+        )
+    } else {
+        crate::llm::run_openai_vibe_edit(
+            &site_root,
+            &target,
+            &prompt,
+            Some(opts),
+            &settings,
+            None,
+        )
+        .await
+    }
 }
 
 #[tauri::command]
@@ -1181,6 +1384,71 @@ fn save_app_settings(
     get_app_settings()
 }
 
+#[tauri::command]
+fn list_llm_providers() -> Result<Vec<ProviderInfo>, String> {
+    Ok(crate::llm::get_provider_registry())
+}
+
+#[tauri::command]
+fn get_llm_settings() -> Result<LlmSettingsView, String> {
+    let s = load_persisted_llm_settings();
+    Ok(crate::llm::build_settings_view(&s))
+}
+
+#[tauri::command]
+fn save_llm_settings(settings: SaveLlmSettingsInput) -> Result<(), String> {
+    let mut current = load_persisted_llm_settings();
+    crate::llm::apply_save_settings_input(&mut current, settings)?;
+    save_persisted_llm_settings(&current)
+}
+
+#[tauri::command]
+fn get_llm_key(provider: String) -> Result<String, String> {
+    let s = load_persisted_llm_settings();
+    let prov = s.providers.get(&provider).ok_or_else(|| {
+        format!("Unknown provider '{}'.", provider)
+    })?;
+    if prov.api_key.trim().is_empty() {
+        return Err("Configure an LLM API key in Settings to use Vibe.".to_string());
+    }
+    Ok(prov.api_key.trim().to_string())
+}
+
+#[tauri::command]
+async fn test_llm_connection(provider: String, model: String) -> Result<TestConnectionResult, String> {
+    let s = load_persisted_llm_settings();
+    Ok(crate::llm::test_llm_connection_impl(&provider, Some(&model), &s, None).await)
+}
+
+#[tauri::command]
+fn get_vibe_context(target: VibeTarget, state: State<'_, AppState>) -> Result<VibeContext, String> {
+    let site_root = require_current_site(&state)?;
+    let original_content = read_vibe_target_content(&site_root, &target)?;
+    let system_prompt = build_vibe_system_prompt(&site_root, &target)?;
+    Ok(VibeContext {
+        original_content,
+        system_prompt,
+    })
+}
+
+#[tauri::command]
+fn evaluate_vibe_proposal_cmd(
+    target: VibeTarget,
+    proposed: String,
+    sources: Option<Vec<GroundingSource>>,
+    state: State<'_, AppState>,
+) -> Result<VibeResult, String> {
+    let site_root = require_current_site(&state)?;
+    let original_content = read_vibe_target_content(&site_root, &target)?;
+    crate::vibe::evaluate_vibe_proposal_with_sources(
+        &site_root,
+        &target,
+        &original_content,
+        &proposed,
+        sources,
+    )
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -1220,6 +1488,13 @@ pub fn run() {
             save_site_config,
             get_app_settings,
             save_app_settings,
+            list_llm_providers,
+            get_llm_settings,
+            save_llm_settings,
+            get_llm_key,
+            test_llm_connection,
+            get_vibe_context,
+            evaluate_vibe_proposal_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Pico application");

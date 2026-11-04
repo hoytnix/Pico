@@ -16,6 +16,7 @@
 - **TypeScript:** 5.9
 - **Bundler:** Vite 6.4
 - **WYSIWYG Editor:** `@milkdown/crepe` (7.23), `@milkdown/kit` (7.23).
+- **Google GenAI SDK:** `@google/genai` (2.32) for native Track 1 Gemini calls, thinking level mapping, and Google Search Grounding.
 - **Package Manager:** `pnpm` exclusively (v12.15).
 
 ## Build & Distribution Scripts
@@ -34,4 +35,9 @@
 Tauri capabilities in `src-tauri/capabilities/default.json` enforce deny-by-default:
 - Scoped file dialogs (`dialog:allow-open`, `dialog:allow-save`, `dialog:allow-ask`).
 - Shell open restricted strictly to localhost URLs (`^https?://(127\.0\.0\.1|localhost)(:[0-9]+)?(/.*)?$`).
-- Network requests scoped only to `https://api.openai.com/*` and `https://api.github.com/*`.
+- Network requests scoped strictly to LLM provider endpoints and GitHub API:
+  - `https://generativelanguage.googleapis.com/*`
+  - `https://api.meta.ai/*`
+  - `https://api.openai.com/*`
+  - `https://openrouter.ai/*`
+  - `https://api.github.com/*`

@@ -1,9 +1,9 @@
 # Progress & Roadmap: Pico
 
 ## Build & Test Status
-- **Rust Backend (`cargo test`):** 12 passed; 0 failed.
+- **Rust Backend (`cargo test`):** 19 passed; 0 failed (28.42s).
 - **Frontend Bundle (`pnpm build`):** Builds without errors (`tsc --noEmit && vite build`).
-- **Release Executable (`pnpm run build:bin`):** Compiles standalone binary to `target/release/pico` (30MB, dynamically linked ELF 64-bit on Linux, with embedded starter templates).
+- **Release Executable (`pnpm run build:bin`):** Compiles standalone binary to `target/release/pico` (31.5MB, dynamically linked ELF 64-bit on Linux, with embedded starter templates).
 - **Backend Type Check (`cargo check`):** Clean, 0 warnings.
 
 ## Feature Matrix & Completed Modules
@@ -18,7 +18,9 @@
 | Live Preview (§3.5) | Completed | Axum localhost server, notify file watcher (300ms debounce), live reload script, draft badges. |
 | Build Pipeline (§3.6, §6) | Completed | 10-step sequence, Lanczos3 WebP variants, sitemap, robots, RSS/Atom, search.json, atomic out.tmp swap. |
 | Export & Publish (§3.6) | Completed | Export out/ to user-selected folder, best-effort GitHub Pages branch push with graceful error reporting. |
-| Vibe AI Editing (§7) | Completed | Natural language editing for content, templates, and theme CSS; unified diff modal with Accept/Reject. |
+| Vibe AI Editing (§7, M84) | Completed | Natural language editing for content, templates, and theme CSS; unified diff modal with Accept/Reject, grounding sources panel, no-key safety. |
+| Top-Tier LLM Providers (M84) | Completed | Dual-track architecture: Gemini Native via `@google/genai` (thinking level, search grounding) & OpenAI-compatible track for OpenAI, OpenRouter, Muse Spark, Gemini OpenAI mode, and Custom HTTPS. |
+| Mobile AI Studio Layout (M84) | Completed | Responsive layout matching mobile Google AI Studio: 3 bottom tabs (Chat, Preview, Files) on <768px, zero-remount state preservation across tab switches, 100dvh internal scrolling, desktop top-nav intact on >=768px. |
 | Starter Templates (§8) | Completed | 4 complete starters with sample posts, models, skeleton, macros, and offline syntax highlighter. |
 | Embedded Executable Packaging | Completed | `include_dir` starter fallback, `pnpm run build:bin`, and `.github/workflows/release.yml`. |
 | License | Completed | (k) Kopimi across repository root, package.json, Cargo.toml, and README.md. |

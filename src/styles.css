@@ -1,4 +1,7 @@
 :root {
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --tab-bar-height: 68px;
+  --tab-bar-total: calc(var(--tab-bar-height) + var(--safe-bottom));
   --pico-bg: #f8fafc;
   --pico-surface: #ffffff;
   --pico-surface-alt: #f1f5f9;
@@ -58,6 +61,9 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   background: var(--pico-bg);
   color: var(--pico-text);
   font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
@@ -65,7 +71,9 @@ html, body {
 }
 
 #app {
+  height: 100%;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -274,6 +282,16 @@ html, body {
 .badge-draft {
   background: #f59e0b;
   color: #111827;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.badge-success, .badge-set {
+  background: var(--pico-success);
+  color: #ffffff;
   font-size: 10px;
   font-weight: 800;
   padding: 1px 6px;
@@ -666,3 +684,366 @@ html, body {
   min-width: 26px;
   justify-content: center;
 }
+
+/* ==========================================================================
+   Mobile AI Studio Layout (M84)
+   ========================================================================== */
+
+/* Workspace & Panes Architecture */
+.panes-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.studio-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+}
+
+/* Mobile Header (Narrow Layout < 768px) */
+.mobile-header {
+  width: 100%;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mobile-hdr-sub {
+  width: 100%;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mobile-hdr-sub.active {
+  display: flex;
+}
+
+.mobile-hdr-left, .mobile-hdr-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.brand-badge-sm {
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: -0.02em;
+  color: var(--pico-primary);
+  flex-shrink: 0;
+}
+
+.site-pill-sm {
+  background: var(--pico-surface-alt);
+  border: 1px solid var(--pico-border);
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 11px;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-provider-pill {
+  background: var(--pico-surface-alt);
+  border: 1px solid var(--pico-border);
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--pico-text);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-target-badge {
+  background: rgba(79, 70, 229, 0.1);
+  border: 1px solid rgba(79, 70, 229, 0.25);
+  color: var(--pico-primary);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 600;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Mobile Bottom Tab Bar */
+.mobile-tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--tab-bar-total);
+  padding-bottom: var(--safe-bottom);
+  background: var(--pico-surface);
+  border-top: 1px solid var(--pico-border);
+  display: none;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 1000;
+  box-sizing: border-box;
+}
+
+.mobile-tab-btn {
+  flex: 1;
+  min-height: 48px;
+  min-width: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--pico-muted);
+  cursor: pointer;
+  padding: 4px;
+  transition: all 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-tab-btn:focus-visible {
+  outline: 2px solid var(--pico-primary);
+  outline-offset: -2px;
+  border-radius: 20px;
+}
+
+.mobile-tab-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  transition: all 0.15s ease;
+  width: 100%;
+  max-width: 80px;
+}
+
+.mobile-tab-icon {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+}
+
+.mobile-tab-label {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.mobile-tab-btn.active {
+  color: var(--pico-primary);
+}
+
+.mobile-tab-btn.active .mobile-tab-pill {
+  background: var(--pico-surface-alt);
+  border: 1px solid var(--pico-border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.mobile-tab-btn.active .mobile-tab-label {
+  font-weight: 700;
+}
+
+.mobile-tab-btn:not(.active) {
+  opacity: 0.72;
+}
+
+.mobile-tab-btn:not(.active):hover {
+  opacity: 1;
+}
+
+/* Chat Pane (Mobile) */
+.chat-conversation {
+  flex: 1;
+  overflow-y: auto;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chat-composer-bar {
+  background: var(--pico-surface);
+  border-top: 1px solid var(--pico-border);
+  padding: 10px 14px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.chat-composer-input {
+  flex: 1;
+  min-height: 48px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--pico-border);
+  background: var(--pico-bg);
+  color: var(--pico-text);
+  font-size: 13.5px;
+  box-sizing: border-box;
+}
+
+.chat-composer-input:focus {
+  outline: 2px solid var(--pico-primary);
+  border-color: var(--pico-primary);
+}
+
+.chat-composer-btn {
+  min-height: 48px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+/* Files Browser View */
+.files-browser-view {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.files-subview-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.files-subview-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pico-text);
+}
+
+/* Responsive Viewport Queries (§4, §5, §6) */
+@media (max-width: 767px) {
+  .desktop-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: flex !important;
+  }
+
+  .mobile-tab-bar {
+    display: flex !important;
+  }
+
+  .topbar {
+    height: 52px;
+    padding: 0 12px;
+  }
+
+  /* Exactly one pane active at a time on narrow viewport (§4) */
+  .studio-pane {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .studio-pane.pane-active {
+    display: flex;
+  }
+
+  /* Internal pane scrolling with tab bar padding (§5) */
+  .pane-scroll {
+    padding: 14px 14px calc(var(--tab-bar-total) + 16px) 14px !important;
+  }
+
+  .chat-conversation {
+    padding: 14px 14px calc(var(--tab-bar-total) + 80px) 14px !important;
+  }
+
+  /* Fixed composer above bottom tab bar (§4) */
+  .chat-composer-bar {
+    position: fixed;
+    bottom: var(--tab-bar-total);
+    left: 0;
+    right: 0;
+    z-index: 50;
+  }
+
+  /* Touch target rule (§7) */
+  .mobile-header button,
+  .mobile-header .btn,
+  .mobile-header .btn-icon,
+  .mobile-tab-btn,
+  .btn-touch-target {
+    min-width: 48px;
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Hide modal backdrop on mobile so pending diff in Chat pane survives tab switches */
+  .modal-backdrop-desktop {
+    display: none !important;
+  }
+
+  /* Preview iframe container bottom padding */
+  .preview-wrapper-mobile {
+    padding-bottom: var(--tab-bar-total);
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-only {
+    display: none !important;
+  }
+
+  .desktop-only {
+    display: flex !important;
+  }
+
+  .sidebar.desktop-only {
+    display: flex !important;
+  }
+
+  .studio-pane {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .studio-pane.pane-chat {
+    display: none !important;
+  }
+
+  .mobile-tab-bar {
+    display: none !important;
+  }
+}
+

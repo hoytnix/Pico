@@ -21,7 +21,10 @@
     {
       "identifier": "http:default",
       "allow": [
+        { "url": "https://generativelanguage.googleapis.com/*" },
+        { "url": "https://api.meta.ai/*" },
         { "url": "https://api.openai.com/*" },
+        { "url": "https://openrouter.ai/*" },
         { "url": "https://api.github.com/*" }
       ]
     }
