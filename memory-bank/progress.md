@@ -10,6 +10,7 @@
 
 | Module / Requirement | Status | Notes |
 | --- | --- | --- |
+| CI Release Workflow Fixes | Completed | 1) Removed `version: 12` from `release.yml` so `pnpm/action-setup` resolves `pnpm@12.15.0`. 2) Added `permissions: contents: write` and dynamic tag resolution (`v__VERSION__` / PR build gating) resolving `403 Resource not accessible by integration`. |
 | TailwindCSS v4 Setup (§2) | Completed | `tailwindcss` + `@tailwindcss/vite` via `pnpm`, Vite plugin registered, `@import "tailwindcss";` in `src/styles.css`. No v3 config files. |
 | Single Visible Pane Shell (§3) | Completed | Root shell `flex h-screen flex-col overflow-hidden`. Exactly one pane visible at a time via `block` / `hidden`. Zero pane stacking. |
 | State Preservation (§3) | Completed | Components remain mounted with `hidden`; chat drafts, pending diffs, editor content, and preview scroll survive all tab switches. |

@@ -1,10 +1,24 @@
 # Active Context: Pico
 
 ## Current Focus
-Resolved React layout stacking bug using TailwindCSS v4: single visible pane at all times, dedicated bottom dock (Vibe / Preview / Code), internal Code sub-navigation (Content / Models / Templates / Theme / Settings), and clean no-site state.
+Fixed GitHub Actions CI/CD release workflow (`.github/workflows/release.yml`) permission failure (`403 Resource not accessible by integration`) by granting `permissions: contents: write` and adding dynamic release tag resolution for pull requests, branch pushes, and version tags.
 
 ## Recent State Changes
-1. **TailwindCSS v4 Integration (Step 0):**
+1. **CI Release Workflow Permission & Tag Resolution Fix:**
+   - Identified root cause in run `41891752066`: `tauri-apps/tauri-action@v0` failed with `##[error]Resource not accessible by integration - https://docs.github.com/rest/releases/releases#create-a-release`.
+   - Workflow lacked `permissions: contents: write`, defaulting `GITHUB_TOKEN` to read-only.
+   - Pushes to `main` passed `tagName: ${{ github.ref_name }}` (evaluating to `"main"`), attempting to create an invalid `"main"` tag release.
+   - Added `permissions: contents: write` at the top level of `.github/workflows/release.yml`.
+   - Added step `Determine release tag` with portable bash script across Linux, macOS, and Windows:
+     - On `pull_request`: sets `tag=` (empty string) and `name=Pico (PR Build)`, causing `tauri-action` to build bundles without attempting to draft releases.
+     - On tag push (`refs/tags/v*`): sets `tag=${{ github.ref_name }}` and `name=Pico ${{ github.ref_name }}`.
+     - On branch push / manual dispatch: sets `tag=v__VERSION__` and `name=Pico v__VERSION__`, allowing `tauri-action` to replace `__VERSION__` with the semantic version from `tauri.conf.json`.
+   - Pushed commit `0b4aca5` to `origin/main`.
+2. **CI Release Workflow pnpm Fix:**
+   - Identified clash where `.github/workflows/release.yml` specified `version: 12` while `package.json` pinned `packageManager: pnpm@12.15.0`.
+   - Removed `version: 12` from `.github/workflows/release.yml` leaving `package.json` as single source of truth.
+   - Pushed commit `8450eab29db21755b72ec31af7878aff05331271`.
+3. **TailwindCSS v4 Integration (Step 0):**
    - Installed `tailwindcss` and `@tailwindcss/vite` via `pnpm` exclusively.
    - Configured Vite plugin in `vite.config.ts` alongside `@vitejs/plugin-react`.
    - Added `@import "tailwindcss";` to `src/styles.css`.
