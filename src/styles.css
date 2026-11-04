@@ -975,6 +975,11 @@ html, body {
     display: flex;
   }
 
+  .preview-control-bar {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
   /* Internal pane scrolling with tab bar padding (§5) */
   .pane-scroll {
     padding: 14px 14px calc(var(--tab-bar-total) + 16px) 14px !important;
@@ -1031,13 +1036,18 @@ html, body {
   }
 
   .studio-pane {
-    display: flex;
+    display: none;
     flex-direction: column;
     flex: 1;
     height: 100%;
     overflow: hidden;
   }
 
+  .studio-pane.pane-active {
+    display: flex;
+  }
+
+  .studio-pane.pane-vibe,
   .studio-pane.pane-chat {
     display: none !important;
   }

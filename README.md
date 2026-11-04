@@ -14,24 +14,40 @@ No deviations.
 
 Pico features an adaptive dual layout inspired by the mobile experience of Google AI Studio:
 
-- **Narrow Viewports (`< 768px`)**: Top navigation is replaced with a fixed bottom tab bar placed within thumb reach, featuring exactly three tabs — **Chat**, **Preview**, and **Files**.
+- **Narrow Viewports (`< 768px`)**: Top navigation is replaced with a fixed bottom tab bar placed within thumb reach, featuring exactly three tabs — **Vibe**, **Preview**, and **Code**.
 - **Wide Viewports (`≥ 768px`)**: Standard desktop navigation remains intact (Content, Models, Templates, Theme, Preview, Build & Export, Settings), and the mobile bottom tab bar is hidden.
-- **Zero-Remount State Preservation**: Switching between tabs never remounts panes or reloads components. Milkdown Crepe WYSIWYG editor content and unsaved edits, chat drafts, pending Vibe unified diffs (with Accept/Reject buttons), preview scroll position, and file selections all survive tab switches.
+- **Zero-Remount State Preservation**: Switching between tabs never remounts panes or reloads components. Milkdown Crepe WYSIWYG editor content and unsaved edits, Vibe conversation drafts, pending Vibe unified diffs (with Accept/Reject buttons), preview scroll position, and file selections all survive tab switches.
 
 ### Three-Tab Navigation Mapping
 
 | Bottom Tab | What It Contains in Pico | Pico Screens & Workflows That Live Here |
 |---|---|---|
-| **Chat** | The Vibe AI assistant conversation: prompt composer, proposed edits, and unified diff review. | - Vibe prompt composer + unified diff + **Accept & Save** / **Reject & Discard** for the active target (post, template, or theme).<br>- Target and Provider/Model indicator in header.<br>- Strict no-key rule: when no provider key is configured, displays exact text: `"Configure an LLM API key in Settings to use Vibe."`<br>- Pending diffs survive tab switches.<br>- Sticky composer positioned above the tab bar. |
-| **Preview** | Live Axum preview server, unchanged in content and behavior. | - Live Axum preview (localhost URL, 300ms debounced live reload, `DRAFT` badges on draft posts in preview only).<br>- **Build Site** and **Export** actions live directly in the Preview header for instant access without tab switching. |
-| **Files** | Site file and collection browser (AI Studio Files/Artifacts pane equivalent). | - **Content Posts**: Browse collections and posts; tap a post to edit frontmatter and body in Milkdown Crepe (Vibe box routes to Chat with target = content).<br>- **Templates**: `templates/*.jinja` and `macros/*.jinja`; tap to edit with guardrail validation & one-click revert (Vibe box routes to Chat with target = template).<br>- **Models**: Visual collection schema editor (`models/*.yaml`), field schema table, and type pickers preserved intact.<br>- **Theme**: `assets/theme.css` editor and CSS variable controls (Vibe box routes to Chat with target = theme).<br>- **Site Configuration**: Visual `site.yaml` editor.<br>- **Assets**: `assets/` media browser and disk image importer.<br>- **Header Actions**: Site Switcher, New Site, and Settings gear icon (opens LLM and Site settings). |
+| **Vibe** | The Vibe AI assistant conversation: prompt composer, proposed edits, and unified diff review. | - Vibe prompt composer + unified diff + **Accept & Save** / **Reject & Discard** for the active target (post, template, or theme).<br>- Target and Provider/Model indicator in header.<br>- Strict no-key rule: when no provider key is configured, displays exact text: `"Configure an LLM API key in Settings to use Vibe."`<br>- Pending diffs survive tab switches.<br>- Sticky composer positioned above the tab bar. |
+| **Preview** | Live Axum preview server with exactly ONE control bar and live site preview. | - Live Axum preview (localhost URL, 300ms debounced live reload, `DRAFT` badges on draft posts in preview only).<br>- Single Live Preview Server control bar with live URL, Copy URL, Rebuild & Refresh, and Open in Browser.<br>- **Build Site** and **Export** actions live directly in the Preview header on narrow viewports for instant access. |
+| **Code** | Site file, collection, template, and model editing suite. | - **Content Posts**: Browse collections and posts; tap a post to edit frontmatter and body in Milkdown Crepe (Vibe box routes to Vibe tab with target = content).<br>- **Templates**: `templates/*.jinja` and `macros/*.jinja`; tap to edit with guardrail validation & one-click revert (Vibe box routes to Vibe tab with target = template).<br>- **Models**: Visual collection schema editor (`models/*.yaml`), field schema table, and type pickers preserved intact.<br>- **Theme**: `assets/theme.css` editor and CSS variable controls (Vibe box routes to Vibe tab with target = theme).<br>- **Site Configuration**: Visual `site.yaml` editor.<br>- **Assets**: `assets/` media browser and disk image importer.<br>- **Header Actions**: Site Switcher, New Site, and Settings gear icon (opens LLM and Site settings). |
 
 ### App Shell & Internal Scrolling (§5)
 
 - **Viewport Fill**: Uses `100dvh` (with `100vh` fallback) and `overflow: hidden` on the root shell to eliminate mobile chrome jumping and dual scrollbars.
-- **Dedicated Internal Scrolling**: Each pane (Chat conversation, Preview iframe container, and Files browser/editor) scrolls independently (`overflow-y: auto`). There is never a document-level scrollbar.
+- **Dedicated Internal Scrolling**: Each pane (Vibe conversation, Preview iframe container, and Code browser/editor) scrolls independently (`overflow-y: auto`). There is never a document-level scrollbar.
 - **Safe-Area Inset & Thumb Reach**: The bottom tab bar is fixed at 64–72px height with `safe-area-inset-bottom` padding to avoid home indicator clipping. All scrollable panes have bottom padding matching the tab bar height plus safe-area inset so content is never hidden behind the navigation. Touch targets are a minimum of 48px.
 - **Accessibility**: Tabs use semantic `<button role="tab">` elements in a `role="tablist"` container with live `aria-selected` attributes and keyboard navigation (ArrowLeft, ArrowRight, Home, End). Active state is distinguished via pill background and font weight, never color alone.
+
+---
+
+## Duplicate Live Preview Server Bug Fix (M84)
+
+### 1. Root Cause Analysis
+- **Duplicate Mounting:** Following the persistent 3-pane shell introduction, `#pane-preview` was mounted as a persistent DOM section inside `.panes-container`. However, on desktop wide viewports, the desktop router in `#pane-code` (`renderActiveTabPane()`) also mounted a second preview component (`renderPreviewPane()`) when the top-nav Preview tab was active.
+- **CSS Visibility Conflict:** On desktop (`≥ 768px`), `.studio-pane` styles set `display: flex` for all panes except `.pane-chat`. Consequently, both `#pane-preview` and `#pane-code` were simultaneously rendered in `.panes-container`.
+- **Stale State Freeze:** During initial workspace mount, `#pane-preview` was rendered before the preview server was started, leaving its URL empty and loading state active. Subsequent preview start events only updated the newly rendered second preview inside `#pane-code`, resulting in two control bars stacked vertically (one empty with "Starting preview server…", and one below with the live URL).
+
+### 2. Resolution Implemented
+- **Single Authoritative Mount Point:** Removed duplicate `renderPreviewPane()` from `renderActiveTabPane()`. `#pane-preview` is now the single, authoritative preview mount point across all viewport widths.
+- **In-Place State Transition:** The single Live Preview Server control bar renders a transient "Starting preview server…" state in place of the URL while starting, and seamlessly updates in-place to the live URL (`http://127.0.0.1:<port>/`) once ready. No second bar or stale elements are created.
+- **Unified Pane Visibility:** Synchronized `.studio-pane.pane-active` visibility across mobile and desktop. On wide viewports, selecting Preview displays `#pane-preview` and hides `#pane-code`; selecting any editor view displays `#pane-code` and hides `#pane-preview`.
+- **Tab Naming Correction:** Standardized mobile bottom tab navigation strictly to **Vibe**, **Preview**, and **Code** (§2).
+- **Zero Chrome Leakage:** Verified that built site output in `out/` contains 0 Pico chrome, and that exactly one preview server/port is used per site.
 
 ---
 

@@ -20,7 +20,8 @@
 | Export & Publish (§3.6) | Completed | Export out/ to user-selected folder, best-effort GitHub Pages branch push with graceful error reporting. |
 | Vibe AI Editing (§7, M84) | Completed | Natural language editing for content, templates, and theme CSS; unified diff modal with Accept/Reject, grounding sources panel, no-key safety. |
 | Top-Tier LLM Providers (M84) | Completed | Dual-track architecture: Gemini Native via `@google/genai` (thinking level, search grounding) & OpenAI-compatible track for OpenAI, OpenRouter, Muse Spark, Gemini OpenAI mode, and Custom HTTPS. |
-| Mobile AI Studio Layout (M84) | Completed | Responsive layout matching mobile Google AI Studio: 3 bottom tabs (Chat, Preview, Files) on <768px, zero-remount state preservation across tab switches, 100dvh internal scrolling, desktop top-nav intact on >=768px. |
+| Mobile AI Studio Layout (M84) | Completed | Responsive layout matching mobile Google AI Studio: 3 bottom tabs (Vibe, Preview, Code) on <768px, zero-remount state preservation across tab switches, 100dvh internal scrolling, desktop top-nav intact on >=768px. |
+| Duplicate Preview Server Fix (M84) | Completed | Eliminated duplicate preview mounting and CSS desktop stacking; unified into single `#pane-preview` with in-place starting → live URL transition; tab names corrected to Vibe / Preview / Code. |
 | Starter Templates (§8) | Completed | 4 complete starters with sample posts, models, skeleton, macros, and offline syntax highlighter. |
 | Embedded Executable Packaging | Completed | `include_dir` starter fallback, `pnpm run build:bin`, and `.github/workflows/release.yml`. |
 | License | Completed | (k) Kopimi across repository root, package.json, Cargo.toml, and README.md. |

@@ -43,9 +43,15 @@ class PicoStudioApp {
   private recentSites: RecentSite[] = [];
   private activeTab: ActiveTab = "content";
 
-  // Mobile Studio navigation state (M84)
-  private mobileActiveTab: "chat" | "preview" | "files" = "files";
-  private filesSubView: "browser" | "content" | "models" | "templates" | "theme" | "site_yaml" | "assets" | "settings" = "browser";
+  // Mobile Studio navigation state (M84: Vibe / Preview / Code)
+  private mobileActiveTab: "vibe" | "preview" | "code" = "code";
+  private codeSubView: "browser" | "content" | "models" | "templates" | "theme" | "site_yaml" | "assets" | "settings" = "browser";
+  private get filesSubView(): "browser" | "content" | "models" | "templates" | "theme" | "site_yaml" | "assets" | "settings" {
+    return this.codeSubView;
+  }
+  private set filesSubView(v: "browser" | "content" | "models" | "templates" | "theme" | "site_yaml" | "assets" | "settings") {
+    this.codeSubView = v;
+  }
   private chatDraft = "";
   private currentVibeTarget: VibeTarget | null = null;
   private isStudioMounted = false;
@@ -886,14 +892,20 @@ class PicoStudioApp {
     }
     await this.unmountCrepe();
     this.activeTab = "preview";
+    this.mobileActiveTab = "preview";
     this.clearBanners();
+    this.render();
     try {
       this.previewUrl = await picoApi.startPreview();
       this.previewRevision = await picoApi.getPreviewRevision();
-      this.render();
+      const iframe = document.getElementById("pico-preview-iframe") as HTMLIFrameElement | null;
+      if (iframe && this.previewUrl) {
+        iframe.src = `${this.previewUrl}?rev=${this.previewRevision}`;
+      }
+      this.updatePreviewDOM();
     } catch (err) {
       this.errorBanner = String(err);
-      this.render();
+      this.renderBannersOnly();
     }
   }
 
@@ -1283,33 +1295,42 @@ class PicoStudioApp {
   private renderPreviewPaneHtml(): string {
     const url = this.previewUrl ?? "";
     return `
-      <div style="display: flex; flex-direction: column; height: 100%; gap: 10px;" class="preview-container-mobile">
-        <div class="card-panel desktop-only" style="padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-shrink: 0;">
-          <div style="display: flex; align-items: center; gap: 8px;">
+      <div style="display: flex; flex-direction: column; height: 100%; gap: 10px;" class="preview-container-mobile preview-wrapper-mobile">
+        <div class="card-panel preview-control-bar" style="padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-shrink: 0; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             <strong>Live Preview Server:</strong>
             <input
               type="text"
               readonly
-              class="fm-input"
-              style="width: 240px;"
+              class="fm-input preview-url-input"
+              style="width: 260px; max-width: 100%;"
               id="preview-url-input"
-              value="${this.escapeHtml(url)}"
+              value="${url ? this.escapeHtml(url) : "Starting preview server…"}"
+              placeholder="Starting preview server…"
             />
-            <button type="button" class="btn btn-sm" id="btn-copy-preview-url">Copy URL</button>
+            <button type="button" class="btn btn-sm" id="btn-copy-preview-url" ${url ? "" : "disabled"}>Copy URL</button>
             <span class="badge-draft">Drafts Visible with DRAFT Badge</span>
           </div>
-          <div style="display: flex; gap: 6px;">
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
             <button type="button" class="btn btn-sm" id="btn-refresh-preview">Rebuild &amp; Refresh</button>
-            <button type="button" class="btn btn-primary btn-sm" id="btn-open-preview-browser">Open in Browser ↗</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-open-preview-browser" ${url ? "" : "disabled"}>Open in Browser ↗</button>
           </div>
         </div>
 
-        <div style="flex: 1; display: flex; overflow: hidden; position: relative;">
-          ${
-            url
-              ? `<iframe id="pico-preview-iframe" class="preview-iframe" src="${this.escapeHtml(url)}?rev=${this.previewRevision}"></iframe>`
-              : `<div class="card-panel" style="flex: 1; display: flex; align-items: center; justify-content: center;">Starting preview server…</div>`
-          }
+        <div style="flex: 1; display: flex; overflow: hidden; position: relative;" id="preview-iframe-wrapper">
+          <iframe
+            id="pico-preview-iframe"
+            class="preview-iframe"
+            src="${url ? `${this.escapeHtml(url)}?rev=${this.previewRevision}` : "about:blank"}"
+            style="flex: 1; width: 100%; height: 100%; border: none; ${url ? "" : "display: none;"}"
+          ></iframe>
+          <div
+            id="preview-loading-placeholder"
+            class="card-panel"
+            style="flex: 1; display: ${url ? "none" : "flex"}; align-items: center; justify-content: center; color: var(--pico-muted);"
+          >
+            Starting preview server…
+          </div>
         </div>
       </div>
     `;
@@ -1363,7 +1384,7 @@ class PicoStudioApp {
     return `
       <div class="files-subview-wrapper">
         <div class="files-subview-nav">
-          <button type="button" class="btn" id="btn-files-back">← Files</button>
+          <button type="button" class="btn" id="btn-files-back">← Code</button>
           <div class="files-subview-title">
             <span>${this.escapeHtml(subviewTitle)}</span>
           </div>
@@ -1576,29 +1597,72 @@ class PicoStudioApp {
     `;
   }
 
-  public setMobileTab(tab: "chat" | "preview" | "files"): void {
-    this.mobileActiveTab = tab;
+  public updatePaneVisibility(): void {
+    const isDesktop = window.innerWidth >= 768;
+    const paneVibe = document.getElementById("pane-vibe") ?? document.getElementById("pane-chat");
+    const panePreview = document.getElementById("pane-preview");
+    const paneCode = document.getElementById("pane-code") ?? document.getElementById("pane-files");
 
-    // Toggle tab bar buttons
-    const tabs: Array<"chat" | "preview" | "files"> = ["chat", "preview", "files"];
-    for (const t of tabs) {
-      const btn = document.getElementById(`mobile-tab-${t}`);
-      const isCur = t === tab;
+    if (isDesktop) {
+      paneVibe?.classList.remove("pane-active");
+      const isPreview = this.activeTab === "preview";
+      panePreview?.classList.toggle("pane-active", isPreview);
+      paneCode?.classList.toggle("pane-active", !isPreview);
+    } else {
+      paneVibe?.classList.toggle("pane-active", this.mobileActiveTab === "vibe");
+      panePreview?.classList.toggle("pane-active", this.mobileActiveTab === "preview");
+      paneCode?.classList.toggle("pane-active", this.mobileActiveTab === "code");
+    }
+  }
+
+  public setMobileTab(tab: "vibe" | "preview" | "code" | "chat" | "files"): void {
+    const normalizedTab: "vibe" | "preview" | "code" =
+      tab === "chat" ? "vibe" : tab === "files" ? "code" : tab;
+    this.mobileActiveTab = normalizedTab;
+    if (normalizedTab === "preview") {
+      this.activeTab = "preview";
+    } else if (normalizedTab === "code") {
+      if (this.activeTab === "preview") {
+        this.activeTab = "content";
+      }
+    }
+
+    // Toggle tab bar buttons & mobile headers
+    const tabMap: Array<["vibe" | "preview" | "code", string, string]> = [
+      ["vibe", "mobile-tab-vibe", "mobile-hdr-vibe"],
+      ["preview", "mobile-tab-preview", "mobile-hdr-preview"],
+      ["code", "mobile-tab-code", "mobile-hdr-code"],
+    ];
+
+    for (const [t, btnId, hdrId] of tabMap) {
+      const isCur = t === normalizedTab;
+      const btn =
+        document.getElementById(btnId) ??
+        (t === "vibe"
+          ? document.getElementById("mobile-tab-chat")
+          : t === "code"
+            ? document.getElementById("mobile-tab-files")
+            : null);
       btn?.classList.toggle("active", isCur);
       btn?.setAttribute("aria-selected", String(isCur));
 
-      const pane = document.getElementById(`pane-${t}`);
-      pane?.classList.toggle("pane-active", isCur);
-
-      const hdr = document.getElementById(`mobile-hdr-${t}`);
+      const hdr =
+        document.getElementById(hdrId) ??
+        (t === "vibe"
+          ? document.getElementById("mobile-hdr-chat")
+          : t === "code"
+            ? document.getElementById("mobile-hdr-files")
+            : null);
       hdr?.classList.toggle("active", isCur);
     }
 
-    if (tab === "preview") {
+    this.updatePaneVisibility();
+
+    if (normalizedTab === "preview") {
       void this.ensurePreviewStarted();
     }
 
-    if (tab === "chat") {
+    if (normalizedTab === "vibe") {
       this.updateChatConversationDOM();
       const input = document.getElementById("chat-vibe-input") as HTMLInputElement | null;
       if (input && this.chatDraft) {
@@ -1606,19 +1670,19 @@ class PicoStudioApp {
       }
     }
 
-    if (tab === "files") {
-      if (this.filesSubView === "content" && this.activePostPath && !this.crepeController) {
+    if (normalizedTab === "code") {
+      if (this.codeSubView === "content" && this.activePostPath && !this.crepeController) {
         void this.mountMilkdownEditor();
       }
     }
   }
 
   private async openFilesSubView(subView: "browser" | "content" | "models" | "templates" | "theme" | "site_yaml" | "assets" | "settings"): Promise<void> {
-    if (this.filesSubView === "content" && subView !== "content" && this.hasUnsavedChanges) {
+    if (this.codeSubView === "content" && subView !== "content" && this.hasUnsavedChanges) {
       if (!(await this.guardUnsavedChanges())) return;
       await this.unmountCrepe();
     }
-    this.filesSubView = subView;
+    this.codeSubView = subView;
     if (subView === "content") {
       this.activeTab = "content";
     } else if (subView === "models") {
@@ -1630,11 +1694,53 @@ class PicoStudioApp {
     } else if (subView === "settings") {
       this.activeTab = "settings";
     }
+    this.mobileActiveTab = "code";
     this.render();
   }
 
+  private updatePreviewDOM(): void {
+    const url = this.previewUrl;
+    const urlInput = document.getElementById("preview-url-input") as HTMLInputElement | null;
+    if (urlInput) {
+      urlInput.value = url ? url : "Starting preview server…";
+    }
+
+    const copyBtn = document.getElementById("btn-copy-preview-url") as HTMLButtonElement | null;
+    if (copyBtn) copyBtn.disabled = !url;
+
+    const openBtn = document.getElementById("btn-open-preview-browser") as HTMLButtonElement | null;
+    if (openBtn) openBtn.disabled = !url;
+
+    const iframe = document.getElementById("pico-preview-iframe") as HTMLIFrameElement | null;
+    const loadingEl = document.getElementById("preview-loading-placeholder");
+
+    if (url) {
+      if (iframe) {
+        const expectedSrc = `${url}?rev=${this.previewRevision}`;
+        if (!iframe.src || iframe.src === "about:blank" || (!iframe.src.startsWith(url) && !iframe.src.includes("127.0.0.1"))) {
+          iframe.src = expectedSrc;
+        }
+        iframe.style.display = "";
+      }
+      if (loadingEl) {
+        loadingEl.style.display = "none";
+      }
+    } else {
+      if (iframe) {
+        iframe.style.display = "none";
+      }
+      if (loadingEl) {
+        loadingEl.style.display = "flex";
+      }
+    }
+  }
+
   private async ensurePreviewStarted(): Promise<void> {
-    if (this.previewUrl) return;
+    if (this.previewUrl) {
+      this.updatePreviewDOM();
+      return;
+    }
+    this.updatePreviewDOM();
     try {
       this.previewUrl = await picoApi.startPreview();
       this.previewRevision = await picoApi.getPreviewRevision();
@@ -1642,10 +1748,7 @@ class PicoStudioApp {
       if (iframe && this.previewUrl) {
         iframe.src = `${this.previewUrl}?rev=${this.previewRevision}`;
       }
-      const urlInput = document.getElementById("preview-url-input") as HTMLInputElement | null;
-      if (urlInput && this.previewUrl) {
-        urlInput.value = this.previewUrl;
-      }
+      this.updatePreviewDOM();
     } catch (err) {
       this.errorBanner = String(err);
       this.renderBannersOnly();
@@ -1680,7 +1783,7 @@ class PicoStudioApp {
     });
 
     document.getElementById("btn-chat-goto-settings")?.addEventListener("click", () => {
-      this.setMobileTab("files");
+      this.setMobileTab("code");
       void this.openFilesSubView("settings");
     });
 
@@ -1852,12 +1955,12 @@ class PicoStudioApp {
     }
 
     // Mobile headers
-    const mobileChatHdr = document.getElementById("mobile-hdr-chat");
-    mobileChatHdr?.classList.toggle("active", this.mobileActiveTab === "chat");
+    const mobileVibeHdr = document.getElementById("mobile-hdr-vibe") ?? document.getElementById("mobile-hdr-chat");
+    mobileVibeHdr?.classList.toggle("active", this.mobileActiveTab === "vibe");
     const mobilePreviewHdr = document.getElementById("mobile-hdr-preview");
     mobilePreviewHdr?.classList.toggle("active", this.mobileActiveTab === "preview");
-    const mobileFilesHdr = document.getElementById("mobile-hdr-files");
-    mobileFilesHdr?.classList.toggle("active", this.mobileActiveTab === "files");
+    const mobileCodeHdr = document.getElementById("mobile-hdr-code") ?? document.getElementById("mobile-hdr-files");
+    mobileCodeHdr?.classList.toggle("active", this.mobileActiveTab === "code");
 
     const provPill = document.getElementById("mobile-hdr-prov-pill");
     if (provPill) {
@@ -1870,10 +1973,10 @@ class PicoStudioApp {
       targetBadge.title = this.getCurrentTargetDisplay();
     }
 
-    const filesHdrLeft = document.getElementById("mobile-files-hdr-left");
+    const filesHdrLeft = document.getElementById("mobile-code-hdr-left") ?? document.getElementById("mobile-files-hdr-left");
     if (filesHdrLeft && this.site) {
-      filesHdrLeft.innerHTML = this.filesSubView !== "browser"
-        ? `<button type="button" class="btn btn-sm" id="btn-files-back-hdr">← Files</button>`
+      filesHdrLeft.innerHTML = this.codeSubView !== "browser"
+        ? `<button type="button" class="btn btn-sm" id="btn-files-back-hdr">← Code</button>`
         : `<span class="brand-badge-sm">Pico</span>
            <span class="site-pill-sm">${this.escapeHtml(this.site.config.title)}</span>
            <button type="button" class="btn btn-sm" id="btn-mobile-switch-site">Switch</button>`;
@@ -1884,21 +1987,38 @@ class PicoStudioApp {
         if (!(await this.guardUnsavedChanges())) return;
         await this.unmountCrepe();
         this.site = null;
+        this.previewUrl = null;
+        this.previewRevision = 0;
+        if (this.previewPollTimer !== null) {
+          window.clearInterval(this.previewPollTimer);
+          this.previewPollTimer = null;
+        }
+        this.isStudioMounted = false;
         this.render();
       });
     }
 
     // Mobile tabs
-    const mobileTabs: Array<"chat" | "preview" | "files"> = ["chat", "preview", "files"];
-    for (const t of mobileTabs) {
-      const btn = document.getElementById(`mobile-tab-${t}`);
+    const tabMap: Array<["vibe" | "preview" | "code", string]> = [
+      ["vibe", "mobile-tab-vibe"],
+      ["preview", "mobile-tab-preview"],
+      ["code", "mobile-tab-code"],
+    ];
+    for (const [t, btnId] of tabMap) {
+      const btn =
+        document.getElementById(btnId) ??
+        (t === "vibe"
+          ? document.getElementById("mobile-tab-chat")
+          : t === "code"
+            ? document.getElementById("mobile-tab-files")
+            : null);
       const isCur = this.mobileActiveTab === t;
       btn?.classList.toggle("active", isCur);
       btn?.setAttribute("aria-selected", String(isCur));
-
-      const pane = document.getElementById(`pane-${t}`);
-      pane?.classList.toggle("pane-active", isCur);
     }
+
+    this.updatePaneVisibility();
+    this.updatePreviewDOM();
 
     // Desktop sidebar
     const sidebar = document.getElementById("desktop-sidebar");
@@ -1911,12 +2031,12 @@ class PicoStudioApp {
     const filesScroll = document.getElementById("files-pane-scroll");
     if (filesScroll) {
       const crepeContainer = document.getElementById("pico-crepe-container");
-      if (this.filesSubView === "content" && crepeContainer && this.crepeController) {
+      if (this.codeSubView === "content" && crepeContainer && this.crepeController) {
         // Crepe is alive and active, do not recreate DOM
-      } else {
+      } else if (this.activeTab !== "preview") {
         filesScroll.innerHTML = this.renderFilesPaneHtml();
         this.bindFilesPaneEvents();
-        if ((this.filesSubView === "content" || this.activeTab === "content") && this.activePostPath && !this.crepeController) {
+        if ((this.codeSubView === "content" || this.activeTab === "content") && this.activePostPath && !this.crepeController) {
           void this.mountMilkdownEditor();
         }
       }
@@ -2089,7 +2209,7 @@ class PicoStudioApp {
       return;
     }
 
-    if (!this.isStudioMounted || !document.getElementById("pane-files")) {
+    if (!this.isStudioMounted || !document.getElementById("pane-preview")) {
       this.renderWorkspace();
       this.isStudioMounted = true;
     } else {
@@ -2124,9 +2244,9 @@ class PicoStudioApp {
         </div>
 
         <div class="mobile-header mobile-only">
-          <div class="mobile-hdr-sub ${this.mobileActiveTab === "chat" ? "active" : ""}" id="mobile-hdr-chat">
+          <div class="mobile-hdr-sub ${this.mobileActiveTab === "vibe" ? "active" : ""}" id="mobile-hdr-vibe">
             <div class="mobile-hdr-left">
-              <span class="brand-badge-sm">Chat</span>
+              <span class="brand-badge-sm">Vibe</span>
               <span class="mobile-provider-pill" id="mobile-hdr-prov-pill" title="${this.escapeHtml(this.getProviderSummary())}">${this.escapeHtml(this.getProviderSummary())}</span>
             </div>
             <div class="mobile-hdr-right">
@@ -2146,10 +2266,10 @@ class PicoStudioApp {
             </div>
           </div>
 
-          <div class="mobile-hdr-sub ${this.mobileActiveTab === "files" ? "active" : ""}" id="mobile-hdr-files">
-            <div class="mobile-hdr-left" id="mobile-files-hdr-left">
-              ${this.filesSubView !== "browser"
-                ? `<button type="button" class="btn btn-sm" id="btn-files-back-hdr">← Files</button>`
+          <div class="mobile-hdr-sub ${this.mobileActiveTab === "code" ? "active" : ""}" id="mobile-hdr-code">
+            <div class="mobile-hdr-left" id="mobile-code-hdr-left">
+              ${this.codeSubView !== "browser"
+                ? `<button type="button" class="btn btn-sm" id="btn-files-back-hdr">← Code</button>`
                 : `<span class="brand-badge-sm">Pico</span>
                    <span class="site-pill-sm">${this.escapeHtml(this.site.config.title)}</span>
                    <button type="button" class="btn btn-sm" id="btn-mobile-switch-site">Switch</button>`
@@ -2170,8 +2290,8 @@ class PicoStudioApp {
         <div class="panes-container">
           <div id="pico-banners-slot">${this.renderBannersHtml()}</div>
 
-          <!-- PANE 1: Chat Pane -->
-          <section class="studio-pane pane-chat ${this.mobileActiveTab === "chat" ? "pane-active" : ""}" id="pane-chat" aria-label="Chat">
+          <!-- PANE 1: Vibe Pane -->
+          <section class="studio-pane pane-vibe pane-chat ${this.mobileActiveTab === "vibe" ? "pane-active" : ""}" id="pane-vibe" aria-label="Vibe">
             <div class="pane-scroll chat-conversation" id="chat-conversation-area">
               ${this.renderChatConversationHtml()}
             </div>
@@ -2185,8 +2305,8 @@ class PicoStudioApp {
             ${this.renderPreviewPaneHtml()}
           </section>
 
-          <!-- PANE 3: Files & Editors Pane -->
-          <section class="studio-pane pane-files ${this.mobileActiveTab === "files" ? "pane-active" : ""}" id="pane-files" aria-label="Files">
+          <!-- PANE 3: Code & Editors Pane -->
+          <section class="studio-pane pane-code pane-files ${this.mobileActiveTab === "code" ? "pane-active" : ""}" id="pane-code" aria-label="Code">
             <div class="pane-scroll" id="files-pane-scroll">
               ${this.renderFilesPaneHtml()}
             </div>
@@ -2208,16 +2328,16 @@ class PicoStudioApp {
         <button
           type="button"
           role="tab"
-          class="mobile-tab-btn ${this.mobileActiveTab === "chat" ? "active" : ""}"
-          id="mobile-tab-chat"
-          aria-selected="${this.mobileActiveTab === "chat"}"
-          aria-controls="pane-chat"
+          class="mobile-tab-btn ${this.mobileActiveTab === "vibe" ? "active" : ""}"
+          id="mobile-tab-vibe"
+          aria-selected="${this.mobileActiveTab === "vibe"}"
+          aria-controls="pane-vibe"
         >
           <div class="mobile-tab-pill">
             <svg class="mobile-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
             </svg>
-            <span class="mobile-tab-label">Chat</span>
+            <span class="mobile-tab-label">Vibe</span>
           </div>
         </button>
 
@@ -2241,17 +2361,17 @@ class PicoStudioApp {
         <button
           type="button"
           role="tab"
-          class="mobile-tab-btn ${this.mobileActiveTab === "files" ? "active" : ""}"
-          id="mobile-tab-files"
-          aria-selected="${this.mobileActiveTab === "files"}"
-          aria-controls="pane-files"
+          class="mobile-tab-btn ${this.mobileActiveTab === "code" ? "active" : ""}"
+          id="mobile-tab-code"
+          aria-selected="${this.mobileActiveTab === "code"}"
+          aria-controls="pane-code"
         >
           <div class="mobile-tab-pill">
             <svg class="mobile-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
               <polyline points="13 2 13 9 20 9"></polyline>
             </svg>
-            <span class="mobile-tab-label">Files</span>
+            <span class="mobile-tab-label">Code</span>
           </div>
         </button>
       </nav>
@@ -2540,7 +2660,7 @@ class PicoStudioApp {
       case "theme":
         return this.renderThemeEditorPane();
       case "preview":
-        return this.renderPreviewPane();
+        return "";
       case "build":
         return this.renderBuildExportPane();
       case "settings":
@@ -2953,39 +3073,6 @@ class PicoStudioApp {
 
       <div style="height: calc(100vh - 220px);">
         <textarea id="pico-theme-textarea" class="code-editor-textarea" spellcheck="false">${this.escapeHtml(this.themeCssContent)}</textarea>
-      </div>
-    `;
-  }
-
-  private renderPreviewPane(): string {
-    const url = this.previewUrl ?? "";
-    return `
-      <div style="display: flex; flex-direction: column; height: calc(100vh - 140px); gap: 12px;">
-        <div class="card-panel" style="padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <strong>Live Preview Server:</strong>
-            <input
-              type="text"
-              readonly
-              class="fm-input"
-              style="width: 260px;"
-              id="preview-url-input"
-              value="${this.escapeHtml(url)}"
-            />
-            <button type="button" class="btn" id="btn-copy-preview-url">Copy URL</button>
-            <span class="badge-draft">Drafts Visible with DRAFT Badge</span>
-          </div>
-          <div style="display: flex; gap: 8px;">
-            <button type="button" class="btn" id="btn-refresh-preview">Rebuild &amp; Refresh</button>
-            <button type="button" class="btn btn-primary" id="btn-open-preview-browser">Open in Browser ↗</button>
-          </div>
-        </div>
-
-        ${
-          url
-            ? `<iframe id="pico-preview-iframe" class="preview-iframe" src="${this.escapeHtml(url)}?rev=${this.previewRevision}"></iframe>`
-            : `<div class="card-panel">Starting preview server…</div>`
-        }
       </div>
     `;
   }
@@ -3490,34 +3577,47 @@ class PicoStudioApp {
       if (!(await this.guardUnsavedChanges())) return;
       await this.unmountCrepe();
       this.site = null;
+      this.previewUrl = null;
+      this.previewRevision = 0;
+      if (this.previewPollTimer !== null) {
+        window.clearInterval(this.previewPollTimer);
+        this.previewPollTimer = null;
+      }
+      this.isStudioMounted = false;
       this.render();
     });
 
     document.getElementById("tab-content")?.addEventListener("click", async () => {
       if (!(await this.guardUnsavedChanges())) return;
       this.activeTab = "content";
+      this.mobileActiveTab = "code";
       this.render();
       await this.mountMilkdownEditor();
     });
     document.getElementById("tab-models")?.addEventListener("click", () => {
+      this.mobileActiveTab = "code";
       void this.openModelsTab();
     });
     document.getElementById("tab-templates")?.addEventListener("click", () => {
+      this.mobileActiveTab = "code";
       void this.openTemplatesTab();
     });
     document.getElementById("tab-theme")?.addEventListener("click", () => {
+      this.mobileActiveTab = "code";
       void this.openThemeTab();
     });
     document.getElementById("tab-preview")?.addEventListener("click", () => {
       void this.openPreviewTab();
     });
     document.getElementById("tab-build")?.addEventListener("click", () => {
+      this.mobileActiveTab = "code";
       void this.openBuildTab(false);
     });
     document.getElementById("tab-settings")?.addEventListener("click", async () => {
       if (!(await this.guardUnsavedChanges())) return;
       await this.unmountCrepe();
       this.activeTab = "settings";
+      this.mobileActiveTab = "code";
       this.render();
     });
 
@@ -3532,15 +3632,21 @@ class PicoStudioApp {
       if (this.previewUrl) void openUrlInBrowser(this.previewUrl);
     });
 
-    // Mobile tabs
+    // Mobile tabs (Vibe / Preview / Code)
+    document.getElementById("mobile-tab-vibe")?.addEventListener("click", () => {
+      this.setMobileTab("vibe");
+    });
     document.getElementById("mobile-tab-chat")?.addEventListener("click", () => {
-      this.setMobileTab("chat");
+      this.setMobileTab("vibe");
     });
     document.getElementById("mobile-tab-preview")?.addEventListener("click", () => {
       this.setMobileTab("preview");
     });
+    document.getElementById("mobile-tab-code")?.addEventListener("click", () => {
+      this.setMobileTab("code");
+    });
     document.getElementById("mobile-tab-files")?.addEventListener("click", () => {
-      this.setMobileTab("files");
+      this.setMobileTab("code");
     });
 
     // Accessible tablist keyboard navigation on mobile tab bar
@@ -3548,36 +3654,33 @@ class PicoStudioApp {
     if (tabNav) {
       tabNav.addEventListener("keydown", (e: Event) => {
         const keyEvent = e as KeyboardEvent;
-        const tabs: Array<"chat" | "preview" | "files"> = ["chat", "preview", "files"];
+        const tabs: Array<"vibe" | "preview" | "code"> = ["vibe", "preview", "code"];
         const curIdx = tabs.indexOf(this.mobileActiveTab);
         if (keyEvent.key === "ArrowRight") {
           keyEvent.preventDefault();
           const nextIdx = (curIdx + 1) % tabs.length;
           this.setMobileTab(tabs[nextIdx]);
-          document.getElementById(`mobile-tab-${tabs[nextIdx]}`)?.focus();
+          (document.getElementById(`mobile-tab-${tabs[nextIdx]}`) ?? document.getElementById(`mobile-tab-${tabs[nextIdx] === "vibe" ? "chat" : "files"}`))?.focus();
         } else if (keyEvent.key === "ArrowLeft") {
           keyEvent.preventDefault();
           const prevIdx = (curIdx - 1 + tabs.length) % tabs.length;
           this.setMobileTab(tabs[prevIdx]);
-          document.getElementById(`mobile-tab-${tabs[prevIdx]}`)?.focus();
+          (document.getElementById(`mobile-tab-${tabs[prevIdx]}`) ?? document.getElementById(`mobile-tab-${tabs[prevIdx] === "vibe" ? "chat" : "files"}`))?.focus();
         } else if (keyEvent.key === "Home") {
           keyEvent.preventDefault();
           this.setMobileTab(tabs[0]);
-          document.getElementById(`mobile-tab-${tabs[0]}`)?.focus();
+          (document.getElementById(`mobile-tab-${tabs[0]}`) ?? document.getElementById("mobile-tab-vibe"))?.focus();
         } else if (keyEvent.key === "End") {
           keyEvent.preventDefault();
           this.setMobileTab(tabs[tabs.length - 1]);
-          document.getElementById(`mobile-tab-${tabs[tabs.length - 1]}`)?.focus();
+          (document.getElementById(`mobile-tab-${tabs[tabs.length - 1]}`) ?? document.getElementById("mobile-tab-code"))?.focus();
         }
       });
     }
 
     // Mobile Preview Header buttons
     document.getElementById("btn-mobile-refresh-preview")?.addEventListener("click", () => {
-      const iframe = document.getElementById("pico-preview-iframe") as HTMLIFrameElement | null;
-      if (iframe && this.previewUrl) {
-        iframe.src = this.previewUrl;
-      }
+      void this.openPreviewTab();
     });
     document.getElementById("btn-mobile-browser-preview")?.addEventListener("click", () => {
       if (this.previewUrl) void openUrlInBrowser(this.previewUrl);
@@ -3589,7 +3692,7 @@ class PicoStudioApp {
       void this.handleExportSite();
     });
 
-    // Mobile Files Header buttons
+    // Mobile Files / Code Header buttons
     document.getElementById("btn-mobile-files-settings")?.addEventListener("click", () => {
       void this.openFilesSubView("settings");
     });
@@ -3597,6 +3700,13 @@ class PicoStudioApp {
       if (!(await this.guardUnsavedChanges())) return;
       await this.unmountCrepe();
       this.site = null;
+      this.previewUrl = null;
+      this.previewRevision = 0;
+      if (this.previewPollTimer !== null) {
+        window.clearInterval(this.previewPollTimer);
+        this.previewPollTimer = null;
+      }
+      this.isStudioMounted = false;
       this.render();
     });
     document.getElementById("btn-files-back-hdr")?.addEventListener("click", () => {
@@ -3608,7 +3718,7 @@ class PicoStudioApp {
       this.showTargetPickerDialog();
     });
     document.getElementById("btn-chat-settings")?.addEventListener("click", () => {
-      this.setMobileTab("files");
+      this.setMobileTab("code");
       void this.openFilesSubView("settings");
     });
 
@@ -3633,12 +3743,12 @@ class PicoStudioApp {
     this.bindDesktopSidebarEvents();
     this.bindFilesPaneEvents();
     this.bindChatConversationEvents();
+    this.bindPreviewEvents();
 
     if (this.activeTab === "content") this.bindContentEditorEvents();
     if (this.activeTab === "models") this.bindModelEditorEvents();
     if (this.activeTab === "templates") this.bindTemplateEditorEvents();
     if (this.activeTab === "theme") this.bindThemeEditorEvents();
-    if (this.activeTab === "preview") this.bindPreviewEvents();
     if (this.activeTab === "build") this.bindBuildEvents();
     if (this.activeTab === "settings") this.bindSettingsEvents();
 
@@ -3860,7 +3970,7 @@ class PicoStudioApp {
         if (window.innerWidth < 768) {
           this.currentVibeTarget = { kind: "content", path: this.activePostPath };
           this.chatDraft = promptVal;
-          this.setMobileTab("chat");
+          this.setMobileTab("vibe");
           if (promptVal) {
             this.submitChatVibePrompt();
           } else {
@@ -3993,7 +4103,7 @@ class PicoStudioApp {
         if (window.innerWidth < 768) {
           this.currentVibeTarget = { kind: "template", path: this.activeTemplatePath };
           this.chatDraft = promptVal;
-          this.setMobileTab("chat");
+          this.setMobileTab("vibe");
           if (promptVal) {
             this.submitChatVibePrompt();
           } else {
@@ -4027,7 +4137,7 @@ class PicoStudioApp {
       if (window.innerWidth < 768) {
         this.currentVibeTarget = { kind: "theme", path: "assets/theme.css" };
         this.chatDraft = promptVal;
-        this.setMobileTab("chat");
+        this.setMobileTab("vibe");
         if (promptVal) {
           this.submitChatVibePrompt();
         } else {
