@@ -1,20 +1,18 @@
 # Active Context: Pico
 
 ## Current Focus
-Fixed GitHub Actions CI/CD release workflow (`.github/workflows/release.yml`) permission failure (`403 Resource not accessible by integration`) by granting `permissions: contents: write` and adding dynamic release tag resolution for pull requests, branch pushes, and version tags.
+Configured GitHub Actions release workflow (`.github/workflows/release.yml`) so that releases are published exclusively when a new git tag occurs. Branch pushes, pull requests, and manual triggers continue to run compilation, tests, and standalone executable uploads without publishing releases.
 
 ## Recent State Changes
-1. **CI Release Workflow Permission & Tag Resolution Fix:**
-   - Identified root cause in run `41891752066`: `tauri-apps/tauri-action@v0` failed with `##[error]Resource not accessible by integration - https://docs.github.com/rest/releases/releases#create-a-release`.
-   - Workflow lacked `permissions: contents: write`, defaulting `GITHUB_TOKEN` to read-only.
-   - Pushes to `main` passed `tagName: ${{ github.ref_name }}` (evaluating to `"main"`), attempting to create an invalid `"main"` tag release.
-   - Added `permissions: contents: write` at the top level of `.github/workflows/release.yml`.
-   - Added step `Determine release tag` with portable bash script across Linux, macOS, and Windows:
-     - On `pull_request`: sets `tag=` (empty string) and `name=Pico (PR Build)`, causing `tauri-action` to build bundles without attempting to draft releases.
-     - On tag push (`refs/tags/v*`): sets `tag=${{ github.ref_name }}` and `name=Pico ${{ github.ref_name }}`.
-     - On branch push / manual dispatch: sets `tag=v__VERSION__` and `name=Pico v__VERSION__`, allowing `tauri-action` to replace `__VERSION__` with the semantic version from `tauri.conf.json`.
-   - Pushed commit `0b4aca5` to `origin/main`.
-2. **CI Release Workflow pnpm Fix:**
+1. **Tag-Gated Publishing in CI Release Workflow:**
+   - Modified `.github/workflows/release.yml` so that `tags: ["*"]` triggers for any release tag.
+   - Replaced dynamic tag step with direct step gate `if: startsWith(github.ref, 'refs/tags/')` on `tauri-apps/tauri-action@v0`.
+   - On branch pushes (`main`) and PRs, `cargo test`, `pnpm run build:frontend`, and standalone binary executable builds run as CI, while the publishing step is skipped.
+   - On new tags, `tauri-action` runs with `tagName: ${{ github.ref_name }}` and `releaseDraft: true`, publishing all OS installer packages to GitHub Releases.
+   - Pushed commit `bcbcc28` to `origin/main`.
+2. **CI Release Workflow Permissions Fix:**
+   - Added `permissions: contents: write` to resolve `403 Resource not accessible by integration`.
+3. **CI Release Workflow pnpm Fix:**
    - Identified clash where `.github/workflows/release.yml` specified `version: 12` while `package.json` pinned `packageManager: pnpm@12.15.0`.
    - Removed `version: 12` from `.github/workflows/release.yml` leaving `package.json` as single source of truth.
    - Pushed commit `8450eab29db21755b72ec31af7878aff05331271`.
