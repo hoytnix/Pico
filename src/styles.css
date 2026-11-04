@@ -786,7 +786,8 @@ html, body {
   white-space: nowrap;
 }
 
-/* Mobile Bottom Tab Bar */
+/* Studio & Bottom Tab Bar */
+.studio-tab-bar,
 .mobile-tab-bar {
   position: fixed;
   bottom: 0;
@@ -796,7 +797,7 @@ html, body {
   padding-bottom: var(--safe-bottom);
   background: var(--pico-surface);
   border-top: 1px solid var(--pico-border);
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: space-around;
   z-index: 1000;
@@ -1022,6 +1023,70 @@ html, body {
   }
 }
 
+/* Topbar Primary Tabs (Vibe / Preview / Code) */
+.topbar-primary-tabs {
+  display: inline-flex;
+  align-items: center;
+  background: var(--pico-bg);
+  border: 1px solid var(--pico-border);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.main-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--pico-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.main-tab-btn:hover {
+  color: var(--pico-text);
+  background: var(--pico-surface-alt);
+}
+
+.main-tab-btn.active {
+  color: var(--pico-primary);
+  background: var(--pico-surface);
+  border-color: var(--pico-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  font-weight: 600;
+}
+
+.tab-btn-icon {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  flex-shrink: 0;
+}
+
+.topbar-code-subtabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.subtabs-separator {
+  color: var(--pico-border);
+  margin: 0 6px;
+  user-select: none;
+}
+
+.sub-tab-btn {
+  font-size: 12.5px;
+  padding: 5px 10px;
+}
+
 @media (min-width: 768px) {
   .mobile-only {
     display: none !important;
@@ -1047,13 +1112,77 @@ html, body {
     display: flex;
   }
 
-  .studio-pane.pane-vibe,
-  .studio-pane.pane-chat {
-    display: none !important;
+  /* Desktop Studio Tab Bar (Centered Pill Dock) */
+  .studio-tab-bar,
+  .mobile-tab-bar {
+    position: fixed;
+    bottom: 34px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: auto;
+    min-width: 300px;
+    height: 44px;
+    border-radius: 999px;
+    border: 1px solid var(--pico-border);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.15);
+    padding: 3px 6px;
+    background: var(--pico-surface);
+    display: flex !important;
+    gap: 6px;
+    z-index: 999;
   }
 
-  .mobile-tab-bar {
-    display: none !important;
+  .studio-tab-bar .mobile-tab-btn,
+  .mobile-tab-bar .mobile-tab-btn {
+    min-width: 84px;
+    min-height: 36px;
+    padding: 0 4px;
+    flex: initial;
+  }
+
+  .studio-tab-bar .mobile-tab-pill,
+  .mobile-tab-bar .mobile-tab-pill {
+    flex-direction: row;
+    gap: 6px;
+    padding: 6px 14px;
+    max-width: none;
+    width: auto;
+  }
+
+  .studio-tab-bar .mobile-tab-label,
+  .mobile-tab-bar .mobile-tab-label {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  /* Vibe Pane on Desktop */
+  .chat-conversation {
+    padding: 24px 32px 16px 32px;
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .chat-composer-bar {
+    max-width: 900px;
+    margin: 0 auto 48px auto;
+    width: 100%;
+    border-radius: 12px;
+    border: 1px solid var(--pico-border);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    padding: 10px 16px;
+    position: relative;
+    bottom: 0;
+    box-sizing: border-box;
+  }
+
+  .preview-wrapper-mobile {
+    padding-bottom: 48px;
+  }
+
+  .pane-scroll {
+    padding-bottom: 48px;
   }
 }
 

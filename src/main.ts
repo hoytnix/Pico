@@ -1598,21 +1598,13 @@ class PicoStudioApp {
   }
 
   public updatePaneVisibility(): void {
-    const isDesktop = window.innerWidth >= 768;
     const paneVibe = document.getElementById("pane-vibe") ?? document.getElementById("pane-chat");
     const panePreview = document.getElementById("pane-preview");
     const paneCode = document.getElementById("pane-code") ?? document.getElementById("pane-files");
 
-    if (isDesktop) {
-      paneVibe?.classList.remove("pane-active");
-      const isPreview = this.activeTab === "preview";
-      panePreview?.classList.toggle("pane-active", isPreview);
-      paneCode?.classList.toggle("pane-active", !isPreview);
-    } else {
-      paneVibe?.classList.toggle("pane-active", this.mobileActiveTab === "vibe");
-      panePreview?.classList.toggle("pane-active", this.mobileActiveTab === "preview");
-      paneCode?.classList.toggle("pane-active", this.mobileActiveTab === "code");
-    }
+    paneVibe?.classList.toggle("pane-active", this.mobileActiveTab === "vibe");
+    panePreview?.classList.toggle("pane-active", this.mobileActiveTab === "preview");
+    paneCode?.classList.toggle("pane-active", this.mobileActiveTab === "code");
   }
 
   public setMobileTab(tab: "vibe" | "preview" | "code" | "chat" | "files"): void {
@@ -1625,6 +1617,23 @@ class PicoStudioApp {
       if (this.activeTab === "preview") {
         this.activeTab = "content";
       }
+    }
+
+    // Toggle topbar primary tabs
+    const topTabMap: Array<["vibe" | "preview" | "code", string]> = [
+      ["vibe", "top-tab-vibe"],
+      ["preview", "top-tab-preview"],
+      ["code", "top-tab-code"],
+    ];
+    for (const [t, btnId] of topTabMap) {
+      const isCur = t === normalizedTab;
+      const btn = document.getElementById(btnId);
+      btn?.classList.toggle("active", isCur);
+      btn?.setAttribute("aria-selected", String(isCur));
+    }
+    const codeSubtabs = document.getElementById("topbar-code-subtabs");
+    if (codeSubtabs) {
+      codeSubtabs.style.display = normalizedTab === "code" ? "" : "none";
     }
 
     // Toggle tab bar buttons & mobile headers
@@ -1947,7 +1956,24 @@ class PicoStudioApp {
 
     this.renderBannersOnly();
 
-    // Desktop tabs
+    // Topbar primary tabs (Vibe / Preview / Code)
+    const topTabMap: Array<["vibe" | "preview" | "code", string]> = [
+      ["vibe", "top-tab-vibe"],
+      ["preview", "top-tab-preview"],
+      ["code", "top-tab-code"],
+    ];
+    for (const [t, btnId] of topTabMap) {
+      const isCur = this.mobileActiveTab === t;
+      const btn = document.getElementById(btnId);
+      btn?.classList.toggle("active", isCur);
+      btn?.setAttribute("aria-selected", String(isCur));
+    }
+    const codeSubtabs = document.getElementById("topbar-code-subtabs");
+    if (codeSubtabs) {
+      codeSubtabs.style.display = this.mobileActiveTab === "code" ? "" : "none";
+    }
+
+    // Desktop subtabs
     const desktopTabs: ActiveTab[] = ["content", "models", "templates", "theme", "preview", "build", "settings"];
     for (const t of desktopTabs) {
       const btn = document.getElementById(`tab-${t}`);
@@ -2228,14 +2254,57 @@ class PicoStudioApp {
           <button type="button" class="btn" id="btn-switch-site">Switch Site</button>
         </div>
 
-        <nav class="topbar-center desktop-only" role="tablist">
-          <button type="button" class="tab-btn ${this.activeTab === "content" ? "active" : ""}" id="tab-content">Content</button>
-          <button type="button" class="tab-btn ${this.activeTab === "models" ? "active" : ""}" id="tab-models">Models</button>
-          <button type="button" class="tab-btn ${this.activeTab === "templates" ? "active" : ""}" id="tab-templates">Templates</button>
-          <button type="button" class="tab-btn ${this.activeTab === "theme" ? "active" : ""}" id="tab-theme">Theme</button>
-          <button type="button" class="tab-btn ${this.activeTab === "preview" ? "active" : ""}" id="tab-preview">Preview</button>
-          <button type="button" class="tab-btn ${this.activeTab === "build" ? "active" : ""}" id="tab-build">Build &amp; Export</button>
-          <button type="button" class="tab-btn ${this.activeTab === "settings" ? "active" : ""}" id="tab-settings">Settings</button>
+        <nav class="topbar-center" role="tablist" aria-label="Main Navigation">
+          <div class="topbar-primary-tabs" role="tablist" aria-label="Primary Modes">
+            <button
+              type="button"
+              class="tab-btn main-tab-btn ${this.mobileActiveTab === "vibe" ? "active" : ""}"
+              id="top-tab-vibe"
+              role="tab"
+              aria-selected="${this.mobileActiveTab === "vibe"}"
+            >
+              <svg class="tab-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+              <span>Vibe</span>
+            </button>
+            <button
+              type="button"
+              class="tab-btn main-tab-btn ${this.mobileActiveTab === "preview" ? "active" : ""}"
+              id="top-tab-preview"
+              role="tab"
+              aria-selected="${this.mobileActiveTab === "preview"}"
+            >
+              <svg class="tab-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <span>Preview</span>
+            </button>
+            <button
+              type="button"
+              class="tab-btn main-tab-btn ${this.mobileActiveTab === "code" ? "active" : ""}"
+              id="top-tab-code"
+              role="tab"
+              aria-selected="${this.mobileActiveTab === "code"}"
+            >
+              <svg class="tab-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                <polyline points="13 2 13 9 20 9"></polyline>
+              </svg>
+              <span>Code</span>
+            </button>
+          </div>
+
+          <div class="topbar-code-subtabs desktop-only" id="topbar-code-subtabs" style="${this.mobileActiveTab === "code" ? "" : "display: none;"}">
+            <span class="subtabs-separator" aria-hidden="true">|</span>
+            <button type="button" class="tab-btn sub-tab-btn ${this.activeTab === "content" ? "active" : ""}" id="tab-content">Content</button>
+            <button type="button" class="tab-btn sub-tab-btn ${this.activeTab === "models" ? "active" : ""}" id="tab-models">Models</button>
+            <button type="button" class="tab-btn sub-tab-btn ${this.activeTab === "templates" ? "active" : ""}" id="tab-templates">Templates</button>
+            <button type="button" class="tab-btn sub-tab-btn ${this.activeTab === "theme" ? "active" : ""}" id="tab-theme">Theme</button>
+            <button type="button" class="tab-btn sub-tab-btn ${this.activeTab === "build" ? "active" : ""}" id="tab-build">Build &amp; Export</button>
+            <button type="button" class="tab-btn sub-tab-btn ${this.activeTab === "settings" ? "active" : ""}" id="tab-settings">Settings</button>
+          </div>
         </nav>
 
         <div class="topbar-right desktop-only">
@@ -2324,7 +2393,7 @@ class PicoStudioApp {
         </div>
       </footer>
 
-      <nav class="mobile-tab-bar mobile-only" role="tablist" aria-label="Mobile Navigation">
+      <nav class="studio-tab-bar mobile-tab-bar" role="tablist" aria-label="Studio Navigation">
         <button
           type="button"
           role="tab"
@@ -3572,7 +3641,7 @@ class PicoStudioApp {
   private bindWorkspaceEvents(): void {
     this.bindBannerDismissEvents();
 
-    // Topbar navigation (desktop)
+    // Topbar navigation (desktop & responsive)
     document.getElementById("btn-switch-site")?.addEventListener("click", async () => {
       if (!(await this.guardUnsavedChanges())) return;
       await this.unmountCrepe();
@@ -3585,6 +3654,17 @@ class PicoStudioApp {
       }
       this.isStudioMounted = false;
       this.render();
+    });
+
+    // Top primary tabs (Vibe / Preview / Code)
+    document.getElementById("top-tab-vibe")?.addEventListener("click", () => {
+      this.setMobileTab("vibe");
+    });
+    document.getElementById("top-tab-preview")?.addEventListener("click", () => {
+      this.setMobileTab("preview");
+    });
+    document.getElementById("top-tab-code")?.addEventListener("click", () => {
+      this.setMobileTab("code");
     });
 
     document.getElementById("tab-content")?.addEventListener("click", async () => {

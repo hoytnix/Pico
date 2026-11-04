@@ -10,19 +10,20 @@ No deviations.
 
 ---
 
-## Mobile AI Studio Layout
+## AI Studio Layout & Navigation (All Resolutions)
 
-Pico features an adaptive dual layout inspired by the mobile experience of Google AI Studio:
+Pico features a unified 3-mode navigation structure (**Vibe**, **Preview**, and **Code**) accessible across all viewport sizes, from mobile up to 1920×1080 and ultrawide desktop monitors:
 
-- **Narrow Viewports (`< 768px`)**: Top navigation is replaced with a fixed bottom tab bar placed within thumb reach, featuring exactly three tabs — **Vibe**, **Preview**, and **Code**.
-- **Wide Viewports (`≥ 768px`)**: Standard desktop navigation remains intact (Content, Models, Templates, Theme, Preview, Build & Export, Settings), and the mobile bottom tab bar is hidden.
+- **Top Navigation Bar**: The top bar center contains primary mode tabs — **Vibe**, **Preview**, and **Code** — with SVG icons and active indicators. When in **Code** mode, desktop sub-tabs (**Content**, **Models**, **Templates**, **Theme**, **Build & Export**, **Settings**) are shown alongside for quick access.
+- **Studio Tab Dock**: Across all resolutions, a studio tab bar provides one-click switching between **Vibe**, **Preview**, and **Code**. On desktop (`≥ 768px`), it floats cleanly centered above the status bar as an elegant pill dock with 84px touch/click targets and pill highlights.
 - **Zero-Remount State Preservation**: Switching between tabs never remounts panes or reloads components. Milkdown Crepe WYSIWYG editor content and unsaved edits, Vibe conversation drafts, pending Vibe unified diffs (with Accept/Reject buttons), preview scroll position, and file selections all survive tab switches.
+- **Desktop Vibe Experience**: On desktop viewports, `#pane-vibe` centers conversation and composer bars to an ergonomic `900px` max-width, providing a focused AI editing environment at full 1080p resolution.
 
 ### Three-Tab Navigation Mapping
 
-| Bottom Tab | What It Contains in Pico | Pico Screens & Workflows That Live Here |
+| Tab | What It Contains in Pico | Pico Screens & Workflows That Live Here |
 |---|---|---|
-| **Vibe** | The Vibe AI assistant conversation: prompt composer, proposed edits, and unified diff review. | - Vibe prompt composer + unified diff + **Accept & Save** / **Reject & Discard** for the active target (post, template, or theme).<br>- Target and Provider/Model indicator in header.<br>- Strict no-key rule: when no provider key is configured, displays exact text: `"Configure an LLM API key in Settings to use Vibe."`<br>- Pending diffs survive tab switches.<br>- Sticky composer positioned above the tab bar. |
+| **Vibe** | The Vibe AI assistant conversation: prompt composer, proposed edits, and unified diff review. | - Vibe prompt composer + unified diff + **Accept & Save** / **Reject & Discard** for the active target (post, template, or theme).<br>- Target and Provider/Model indicator in header.<br>- Strict no-key rule: when no provider key is configured, displays exact text: `"Configure an LLM API key in Settings to use Vibe."`<br>- Pending diffs survive tab switches.<br>- Desktop view centers conversation and composer to 900px max-width. |
 | **Preview** | Live Axum preview server with exactly ONE control bar and live site preview. | - Live Axum preview (localhost URL, 300ms debounced live reload, `DRAFT` badges on draft posts in preview only).<br>- Single Live Preview Server control bar with live URL, Copy URL, Rebuild & Refresh, and Open in Browser.<br>- **Build Site** and **Export** actions live directly in the Preview header on narrow viewports for instant access. |
 | **Code** | Site file, collection, template, and model editing suite. | - **Content Posts**: Browse collections and posts; tap a post to edit frontmatter and body in Milkdown Crepe (Vibe box routes to Vibe tab with target = content).<br>- **Templates**: `templates/*.jinja` and `macros/*.jinja`; tap to edit with guardrail validation & one-click revert (Vibe box routes to Vibe tab with target = template).<br>- **Models**: Visual collection schema editor (`models/*.yaml`), field schema table, and type pickers preserved intact.<br>- **Theme**: `assets/theme.css` editor and CSS variable controls (Vibe box routes to Vibe tab with target = theme).<br>- **Site Configuration**: Visual `site.yaml` editor.<br>- **Assets**: `assets/` media browser and disk image importer.<br>- **Header Actions**: Site Switcher, New Site, and Settings gear icon (opens LLM and Site settings). |
 
