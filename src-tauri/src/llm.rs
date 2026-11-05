@@ -1,10 +1,8 @@
 use crate::models::{
     LlmAppSettings, LlmSettingsView, ProviderInfo, ProviderSettings,
-    ProviderView, SaveLlmSettingsInput, TestConnectionResult, VibeOptions, VibeResult, VibeTarget,
+    ProviderView, SaveLlmSettingsInput, TestConnectionResult,
 };
-use crate::vibe::{build_vibe_system_prompt, evaluate_vibe_proposal, read_vibe_target_content};
 use std::collections::HashMap;
-use std::path::Path;
 use std::time::{Duration, Instant};
 
 /// The canonical preset provider IDs.
@@ -831,128 +829,6 @@ pub async fn test_llm_connection_impl(
             }
         }
     }
-}
-
-/// Executes a Vibe edit using the OpenAI-compatible track (§4) with 120s timeout.
-pub async fn run_openai_vibe_edit(
-    site_root: &Path,
-    target: &VibeTarget,
-    prompt: &str,
-    options: Option<VibeOptions>,
-    settings: &LlmAppSettings,
-    client_opt: Option<&reqwest::Client>,
-) -> Result<VibeResult, String> {
-    let opts = options.unwrap_or_default();
-    let provider_id = opts
-        .provider
-        .unwrap_or_else(|| settings.current_provider.clone());
-
-    let prov = settings.providers.get(&provider_id).ok_or_else(|| {
-        format!("Configured provider '{}' not found in settings.", provider_id)
-    })?;
-
-    // Hard check for API key
-    if prov.api_key.trim().is_empty() {
-        return Err("Configure an LLM API key in Settings to use Vibe.".to_string());
-    }
-    if prompt.trim().is_empty() {
-        return Err("Please enter a Vibe instruction prompt.".to_string());
-    }
-
-    let raw_model = if let Some(m) = opts.model {
-        if !m.trim().is_empty() {
-            m.trim().to_string()
-        } else if !prov.custom_model.trim().is_empty() {
-            prov.custom_model.trim().to_string()
-        } else {
-            prov.model.trim().to_string()
-        }
-    } else if !prov.custom_model.trim().is_empty() {
-        prov.custom_model.trim().to_string()
-    } else {
-        prov.model.trim().to_string()
-    };
-    let model = normalize_google_model_id(&provider_id, &raw_model);
-
-    let thinking = opts.thinking.unwrap_or_else(|| prov.thinking.clone());
-
-    let original_content = read_vibe_target_content(site_root, target)?;
-    let system_prompt = build_vibe_system_prompt(site_root, target)?;
-    let user_msg = format!(
-        "Instruction: {}\n\nCurrent file (`{}`):\n{}",
-        prompt.trim(),
-        target.path,
-        original_content
-    );
-
-    let base = prov.base_url.trim_end_matches('/');
-    let endpoint = if base.ends_with("/chat/completions") {
-        base.to_string()
-    } else {
-        format!("{}/chat/completions", base)
-    };
-
-    let mut payload_map = serde_json::Map::new();
-    payload_map.insert("model".to_string(), serde_json::Value::String(model.clone()));
-    payload_map.insert(
-        "messages".to_string(),
-        serde_json::json!([
-            { "role": "system", "content": system_prompt },
-            { "role": "user", "content": user_msg }
-        ]),
-    );
-
-    // Map thinking according to §5.1
-    let mapped_thinking = map_thinking_setting(&provider_id, &model, &thinking)?;
-    if let ThinkingMapping::OpenAiReasoning(ref effort) = mapped_thinking {
-        payload_map.insert(
-            "reasoning_effort".to_string(),
-            serde_json::Value::String(effort.clone()),
-        );
-    }
-
-    let default_client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(120))
-        .build()
-        .unwrap_or_default();
-    let client = client_opt.unwrap_or(&default_client);
-
-    let mut req = client
-        .post(&endpoint)
-        .bearer_auth(prov.api_key.trim())
-        .json(&serde_json::Value::Object(payload_map));
-
-    // OpenRouter required headers (§4)
-    if provider_id == PROVIDER_OPENROUTER || endpoint.contains("openrouter.ai") {
-        req = req
-            .header("HTTP-Referer", "https://github.com/kopimi/pico")
-            .header("X-Title", "Pico");
-    }
-
-    let resp = req.send().await.map_err(|e| {
-        format_provider_error(&provider_id, &model, None, &e.to_string())
-    })?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
-        let err = format_provider_error(&provider_id, &model, Some(status.as_u16()), &body);
-        return Err(err);
-    }
-
-    let json_resp: serde_json::Value = resp
-        .json()
-        .await
-        .map_err(|e| format!("Invalid JSON response from LLM endpoint: {}", e))?;
-
-    let proposed_raw = json_resp
-        .pointer("/choices/0/message/content")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| "LLM response did not contain choices[0].message.content.".to_string())?;
-
-    let mut res = evaluate_vibe_proposal(site_root, target, &original_content, proposed_raw)?;
-    res.sources = None; // Sources are present only for Gemini Native grounding calls (§9)
-    Ok(res)
 }
 
 #[cfg(test)]

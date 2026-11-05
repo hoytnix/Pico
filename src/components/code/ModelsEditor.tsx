@@ -9,6 +9,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { picoApi, confirmAction } from '../../api';
+import { slugify } from '../../lib/slug';
 import type { ModelDef, ModelField, SiteInfo } from '../../types';
 
 interface ModelsEditorProps {
@@ -124,7 +125,8 @@ export function ModelsEditor({ currentSite, onModelSaved }: ModelsEditorProps) {
   const handleCreateModel = () => {
     const name = window.prompt('Enter model name (e.g. docs, portfolio):');
     if (!name || !name.trim()) return;
-    const cleanName = name.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    const cleanName = slugify(name);
+    if (!cleanName) return;
     const newModel: ModelDef = {
       name: cleanName,
       label: name.trim(),

@@ -15,7 +15,7 @@ use crate::models::{
     AppSettingsView, AppState, BuildResult, GroundingSource, LlmAppSettings, LlmSettingsView,
     ModelDef, ModelField, PersistedAppSettings, PostDocument, PostMeta, PreviewServerHandle,
     ProviderInfo, PublishResult, RecentSite, SaveLlmSettingsInput, SiteConfig, SiteInfo,
-    TemplateContextInfo, TestConnectionResult, VariableDoc, VibeContext, VibeOptions, VibeResult,
+    TemplateContextInfo, TestConnectionResult, VariableDoc, VibeContext, VibeResult,
     VibeTarget,
 };
 use crate::preview::{start_axum_preview_server, start_site_watcher};
@@ -1285,168 +1285,6 @@ async fn publish_github_pages(state: State<'_, AppState>) -> Result<PublishResul
 }
 
 #[tauri::command]
-async fn vibe_edit(
-    target: VibeTarget,
-    prompt: String,
-    options: Option<VibeOptions>,
-    state: State<'_, AppState>,
-) -> Result<VibeResult, String> {
-    let site_root = require_current_site(&state)?;
-    let settings = load_persisted_llm_settings();
-    let opts = options.unwrap_or_default();
-    let provider_id = opts
-        .provider
-        .clone()
-        .unwrap_or_else(|| settings.current_provider.clone());
-
-    if provider_id == crate::llm::PROVIDER_GEMINI_NATIVE {
-        let prov = settings.providers.get(&provider_id).ok_or_else(|| {
-            format!("Provider '{}' not found in settings.", provider_id)
-        })?;
-        if prov.api_key.trim().is_empty() {
-            return Err("Configure an LLM API key in Settings to use Vibe.".to_string());
-        }
-        let original_content = read_vibe_target_content(&site_root, &target)?;
-        let system_prompt = build_vibe_system_prompt(&site_root, &target)?;
-        let user_msg = format!(
-            "{}\n\nInstruction: {}\n\nCurrent file (`{}`):\n{}",
-            system_prompt,
-            prompt.trim(),
-            target.path,
-            original_content
-        );
-        let model = opts
-            .model
-            .as_ref()
-            .filter(|m| !m.trim().is_empty())
-            .unwrap_or_else(|| {
-                if !prov.custom_model.trim().is_empty() {
-                    &prov.custom_model
-                } else {
-                    &prov.model
-                }
-            });
-        let endpoint = format!(
-            "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
-            model,
-            prov.api_key.trim()
-        );
-        let thinking = opts.thinking.as_deref().unwrap_or(&prov.thinking);
-        let grounding = opts.grounding.unwrap_or(prov.grounding);
-        let mapped_thinking = crate::llm::map_thinking_setting(&provider_id, model, thinking)?;
-        let mut config_obj = serde_json::Map::new();
-        if grounding {
-            config_obj.insert(
-                "tools".to_string(),
-                serde_json::json!([{ "googleSearch": {} }]),
-            );
-        }
-        match mapped_thinking {
-            crate::llm::ThinkingMapping::GeminiLevel(lvl) => {
-                config_obj.insert(
-                    "thinkingConfig".to_string(),
-                    serde_json::json!({ "thinkingLevel": lvl }),
-                );
-            }
-            crate::llm::ThinkingMapping::GeminiBudget(budget) => {
-                config_obj.insert(
-                    "thinkingConfig".to_string(),
-                    serde_json::json!({ "thinkingBudget": budget }),
-                );
-            }
-            _ => {}
-        }
-        let payload = serde_json::json!({
-            "contents": [{ "parts": [{ "text": user_msg }] }],
-            "generationConfig": serde_json::Value::Object(config_obj)
-        });
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(120))
-            .build()
-            .unwrap_or_default();
-        let resp = client
-            .post(&endpoint)
-            .json(&payload)
-            .send()
-            .await
-            .map_err(|e| {
-                crate::llm::format_provider_error(&provider_id, model, None, &e.to_string())
-            })?;
-        let status = resp.status();
-        if !status.is_success() {
-            let body = resp.text().await.unwrap_or_default();
-            return Err(crate::llm::format_provider_error(
-                &provider_id,
-                model,
-                Some(status.as_u16()),
-                &body,
-            ));
-        }
-        let json_val: serde_json::Value = resp
-            .json()
-            .await
-            .map_err(|e| format!("Invalid JSON response from Gemini API: {}", e))?;
-
-        let mut text_parts = Vec::new();
-        if let Some(parts) = json_val
-            .pointer("/candidates/0/content/parts")
-            .and_then(|v| v.as_array())
-        {
-            for part in parts {
-                let is_thought = part.get("thought").and_then(|v| v.as_bool()).unwrap_or(false);
-                if !is_thought {
-                    if let Some(txt) = part.get("text").and_then(|v| v.as_str()) {
-                        text_parts.push(txt);
-                    }
-                }
-            }
-        }
-        let proposed_raw = text_parts.join("");
-        let mut sources = Vec::new();
-        if let Some(chunks) = json_val
-            .pointer("/candidates/0/groundingMetadata/groundingChunks")
-            .and_then(|v| v.as_array())
-        {
-            for chunk in chunks {
-                if let Some(web) = chunk.get("web") {
-                    let title = web
-                        .get("title")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("Grounding Source")
-                        .to_string();
-                    let url = web.get("uri").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                    if !url.is_empty() {
-                        sources.push(GroundingSource {
-                            title,
-                            url,
-                            snippet: None,
-                        });
-                    }
-                }
-            }
-        }
-        let sources_opt = if grounding { Some(sources) } else { None };
-        crate::vibe::evaluate_vibe_proposal_with_sources(
-            &site_root,
-            &target,
-            &original_content,
-            &proposed_raw,
-            sources_opt,
-        )
-    } else {
-        crate::llm::run_openai_vibe_edit(
-            &site_root,
-            &target,
-            &prompt,
-            Some(opts),
-            &settings,
-            None,
-        )
-        .await
-    }
-}
-
-#[tauri::command]
 fn get_site_config(state: State<'_, AppState>) -> Result<SiteConfig, String> {
     let site_root = require_current_site(&state)?;
     load_site_config(&site_root).map_err(|e| e.to_string())
@@ -1633,7 +1471,6 @@ pub fn run() {
             get_preview_revision,
             export_site,
             publish_github_pages,
-            vibe_edit,
             get_site_config,
             save_site_config,
             get_app_settings,

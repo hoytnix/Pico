@@ -1,5 +1,5 @@
 use crate::builder::{load_all_templates, load_models};
-use crate::models::{PersistedAppSettings, VibeResult, VibeTarget};
+use crate::models::{VibeResult, VibeTarget};
 use crate::validation::{
     BUILTIN_ITEM_FIELDS, SITE_CONFIG_FIELDS, strip_frontmatter_from_body,
     validate_template_with_models,
@@ -291,78 +291,3 @@ pub fn read_vibe_target_content(site_root: &Path, target: &VibeTarget) -> Result
     }
 }
 
-/// Executes a Vibe edit against the user's configured OpenAI-compatible LLM endpoint.
-/// Never fakes a response or applies changes automatically.
-pub async fn run_vibe_edit_with_llm(
-    site_root: &Path,
-    target: &VibeTarget,
-    prompt: &str,
-    settings: &PersistedAppSettings,
-) -> Result<VibeResult, String> {
-    if settings.llm_api_key.trim().is_empty() {
-        return Err("Configure an LLM API key in Settings to use Vibe.".to_string());
-    }
-    if prompt.trim().is_empty() {
-        return Err("Please enter a Vibe instruction prompt.".to_string());
-    }
-
-    let original_content = read_vibe_target_content(site_root, target)?;
-    let system_prompt = build_vibe_system_prompt(site_root, target)?;
-    let user_msg = format!(
-        "Instruction: {}\n\nCurrent file (`{}`):\n{}",
-        prompt.trim(),
-        target.path,
-        original_content
-    );
-
-    let endpoint = if settings.llm_endpoint.trim().is_empty() {
-        "https://api.openai.com/v1/chat/completions"
-    } else {
-        settings.llm_endpoint.trim()
-    };
-    let model = if settings.llm_model.trim().is_empty() {
-        "gpt-4o-mini"
-    } else {
-        settings.llm_model.trim()
-    };
-
-    let client = reqwest::Client::new();
-    let payload = serde_json::json!({
-        "model": model,
-        "temperature": 0.2,
-        "messages": [
-            { "role": "system", "content": system_prompt },
-            { "role": "user", "content": user_msg }
-        ]
-    });
-
-    let resp = client
-        .post(endpoint)
-        .bearer_auth(settings.llm_api_key.trim())
-        .json(&payload)
-        .send()
-        .await
-        .map_err(|e| format!("LLM request failed: {}", e))?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
-        return Err(format!(
-            "LLM endpoint returned HTTP {}: {}",
-            status.as_u16(),
-            body.lines().next().unwrap_or("request rejected")
-        ));
-    }
-
-    let json_resp: serde_json::Value = resp
-        .json()
-        .await
-        .map_err(|e| format!("Invalid JSON response from LLM endpoint: {}", e))?;
-
-    let proposed_raw = json_resp
-        .pointer("/choices/0/message/content")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| "LLM response did not contain choices[0].message.content.".to_string())?;
-
-    evaluate_vibe_proposal(site_root, target, &original_content, proposed_raw)
-}

@@ -11,6 +11,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { picoApi, pickImageFileDialog, confirmAction } from '../../api';
+import { slugify, formatPostPath } from '../../lib/slug';
 import { TiptapEditor } from '../editor/TiptapEditor';
 import type { ModelDef, PostDocument, PostMeta, SiteInfo } from '../../types';
 
@@ -147,12 +148,9 @@ export function ContentEditor({
   const handleCreatePost = async () => {
     const title = window.prompt('Enter post title:');
     if (!title || !title.trim()) return;
-    const slug = title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
+    const slug = slugify(title) || 'new-post';
     const dateStr = new Date().toISOString().split('T')[0];
-    const path = `content/${activeCollection}/${slug}.md`;
+    const path = formatPostPath(activeCollection, slug);
 
     const initialFrontmatter: Record<string, unknown> = {
       title: title.trim(),

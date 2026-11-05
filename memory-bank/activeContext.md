@@ -1,10 +1,29 @@
 # Active Context: Pico
 
 ## Current Focus
-Bumped version from `0.1.1` to `0.1.2`, tagged release `v0.1.2`, and pushed to remote to trigger the CI release pipeline.
+Executed Phase 1 & 3 modularization refactoring from the Refactoring Roadmap: purged vestigial backend Vibe monolith code (Tasks 2), centralized canonical slug and path utilities (Task 8), created frontend LLM SSOT module (Task 5), and decomposed SettingsModal into dedicated tab components (Task 3).
 
 ## Recent State Changes
-1. **Version Bump to `0.1.2` & Release Tag `v0.1.2`:**
+1. **Refactoring Roadmap Execution (Tasks 2, 8, 5, 3):**
+   - **Task 2: Purged Ghost Monolith from Rust Backend:**
+     - Removed 160-line uncalled legacy `vibe_edit` command from [`src-tauri/src/lib.rs`](file:///home/oloty/Dev/Pico/src-tauri/src/lib.rs) and unregistered it from `tauri::generate_handler!`.
+     - Removed 120-line unused `run_openai_vibe_edit` from [`src-tauri/src/llm.rs`](file:///home/oloty/Dev/Pico/src-tauri/src/llm.rs) along with unused `vibe` and `Path` imports.
+     - Removed 75-line unused `run_vibe_edit_with_llm` from [`src-tauri/src/vibe.rs`](file:///home/oloty/Dev/Pico/src-tauri/src/vibe.rs) and unused `PersistedAppSettings` imports.
+   - **Task 8: Canonical Slugification & Path Utilities:**
+     - Created [`src/lib/slug.ts`](file:///home/oloty/Dev/Pico/src/lib/slug.ts) (57 LOC) defining `slugify`, `normalizeRelativePath`, `normalizeModelPath`, and `formatPostPath`.
+     - Replaced ad-hoc regex string manipulations in [`ContentEditor.tsx`](file:///home/oloty/Dev/Pico/src/components/code/ContentEditor.tsx), [`ModelsEditor.tsx`](file:///home/oloty/Dev/Pico/src/components/code/ModelsEditor.tsx), and [`vibeAgent.ts`](file:///home/oloty/Dev/Pico/src/lib/vibeAgent.ts).
+   - **Task 5: Centralized LLM Provider Normalization & Formatting SSOT:**
+     - Created [`src/lib/llmProviders.ts`](file:///home/oloty/Dev/Pico/src/lib/llmProviders.ts) (214 LOC) centralizing `MODEL_DISPLAY_LABELS`, `normalizeGoogleModelId`, `formatLlmError`, `buildProviderOptions`, and `createVibeModel`.
+     - Streamlined [`src/lib/vibeAgent.ts`](file:///home/oloty/Dev/Pico/src/lib/vibeAgent.ts) from 416 LOC down to 221 LOC (in the 100–250 LOC ideal zone).
+   - **Task 3: Decomposed SettingsModal into Tab Components:**
+     - Extracted [`src/components/settings/tabs/SiteSettingsTab.tsx`](file:///home/oloty/Dev/Pico/src/components/settings/tabs/SiteSettingsTab.tsx) (74 LOC) for site metadata fields.
+     - Extracted [`src/components/settings/tabs/LlmSettingsTab.tsx`](file:///home/oloty/Dev/Pico/src/components/settings/tabs/LlmSettingsTab.tsx) (284 LOC) for provider selection, preset models, thinking options, and API key testing.
+     - Reduced [`src/components/settings/SettingsModal.tsx`](file:///home/oloty/Dev/Pico/src/components/settings/SettingsModal.tsx) from 613 LOC to 322 LOC.
+   - **Verification:**
+     - All 22 Rust backend unit tests pass cleanly (`cargo test`).
+     - Frontend compiles with 0 TypeScript/Vite errors (`pnpm build`).
+     - Net code reduction: -848 lines of duplicate and dead code removed.
+2. **Version Bump to `0.1.2` & Release Tag `v0.1.2`:**
    - Updated package version to `0.1.2` across [package.json](file:///home/oloty/Dev/Pico/package.json), [Cargo.toml](file:///home/oloty/Dev/Pico/src-tauri/Cargo.toml), and [tauri.conf.json](file:///home/oloty/Dev/Pico/src-tauri/tauri.conf.json).
    - Recompiled backend with `cargo check` and rebuilt frontend bundle with `pnpm build`.
    - Created git tag `v0.1.2` and pushed commits and tag to `origin/main` to trigger the CI release workflow.

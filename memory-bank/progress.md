@@ -10,6 +10,7 @@
 
 | Module / Requirement | Status | Notes |
 | --- | --- | --- |
+| Refactoring Phase 1 & 3 | Completed | 1) Purged dead backend Vibe monolith (`vibe_edit`, `run_openai_vibe_edit`, `run_vibe_edit_with_llm`). 2) Created canonical `slug.ts` utility. 3) Extracted `llmProviders.ts` SSOT reducing `vibeAgent.ts` from 416 to 221 LOC. 4) Decomposed `SettingsModal.tsx` into `LlmSettingsTab.tsx` and `SiteSettingsTab.tsx`, reducing modal from 613 to 322 LOC. Net deletion: -848 LOC. |
 | Version Bump `v0.1.2` | Completed | Bumped version to `0.1.2` across `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`. Tagged `v0.1.2` and pushed to origin. |
 | Sequential Multi-File Diffs in Vibe | Completed | Fixed proposal clobbering where subsequent edits overwrote the single proposal slot. Diff cards now display sequentially in order (`Diff X of Y`) inside the message bubble, with independent Accept & Save / Reject controls per card, batch Accept All / Reject All actions, individual loading indicators, and agent prompt guidance. |
 | Google Models (Gemma 4 & Gemini 3.6 / 3.1) | Completed | Added support for Gemma 4 26B (`gemma-4-26b-a4b-it`), Gemma 4 31B (`gemma-4-31b-it`), Gemini 3.6 Flash (`gemini-3.6-flash`), and Gemini 3.1 Flash-Lite (`gemini-3.1-flash-lite`). Expanded `default_models` in `gemini-native` and `gemini-openai`, added alias normalization (`normalize_google_model_id` in backend and `normalizeGoogleModelId` in frontend), updated thinking controls & tests, and added friendly labels in Settings. |
