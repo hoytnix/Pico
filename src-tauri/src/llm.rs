@@ -25,8 +25,12 @@ pub fn get_provider_registry() -> Vec<ProviderInfo> {
             default_models: vec![
                 "gemini-4-argon".to_string(),
                 "gemini-3.8-flash".to_string(),
+                "gemini-3.6-flash".to_string(),
                 "gemini-3.5-flash".to_string(),
                 "gemini-3.5-flash-lite".to_string(),
+                "gemini-3.1-flash-lite".to_string(),
+                "gemma-4-31b-it".to_string(),
+                "gemma-4-26b-a4b-it".to_string(),
             ],
             key_label: "Gemini API key".to_string(),
             key_url: "https://aistudio.google.com/app/apikey".to_string(),
@@ -76,8 +80,12 @@ pub fn get_provider_registry() -> Vec<ProviderInfo> {
             default_models: vec![
                 "gemini-4-argon".to_string(),
                 "gemini-3.8-flash".to_string(),
+                "gemini-3.6-flash".to_string(),
                 "gemini-3.5-flash".to_string(),
                 "gemini-3.5-flash-lite".to_string(),
+                "gemini-3.1-flash-lite".to_string(),
+                "gemma-4-31b-it".to_string(),
+                "gemma-4-26b-a4b-it".to_string(),
             ],
             key_label: "Gemini API key".to_string(),
             key_url: "https://aistudio.google.com/app/apikey".to_string(),
@@ -203,6 +211,41 @@ pub fn validate_save_llm_settings(
     }
 
     Ok(())
+}
+
+/// Normalizes Google model identifiers and aliases (such as Gemma 4 variants and version shorthands)
+/// to their canonical API model names.
+pub fn normalize_google_model_id(provider_id: &str, model: &str) -> String {
+    let trimmed = model.trim();
+    let lower = trimmed.to_ascii_lowercase();
+
+    if provider_id == PROVIDER_GEMINI_NATIVE || provider_id == PROVIDER_GEMINI_OPENAI {
+        match lower.as_str() {
+            "gemma-4-26b" | "gemma 4 26b" | "gemma-4-26b-it" | "gemma-4-26b-a4b" => {
+                "gemma-4-26b-a4b-it".to_string()
+            }
+            "gemma-4-31b" | "gemma 4 31b" => "gemma-4-31b-it".to_string(),
+            "gemini-3.6" | "gemini 3.6" | "gemini 3.6 flash" => "gemini-3.6-flash".to_string(),
+            "gemini-3.1" | "gemini 3.1" | "gemini 3.1 flash-lite" | "gemini-3.1-flash" => {
+                "gemini-3.1-flash-lite".to_string()
+            }
+            _ => trimmed.to_string(),
+        }
+    } else if provider_id == PROVIDER_OPENROUTER {
+        match lower.as_str() {
+            "google/gemma-4-26b" | "google/gemma-4-26b-it" | "google/gemma-4-26b-a4b" => {
+                "google/gemma-4-26b-a4b-it".to_string()
+            }
+            "google/gemma-4-31b" => "google/gemma-4-31b-it".to_string(),
+            "google/gemini-3.6" | "google/gemini 3.6" => "google/gemini-3.6-flash".to_string(),
+            "google/gemini-3.1" | "google/gemini 3.1" => {
+                "google/gemini-3.1-flash-lite".to_string()
+            }
+            _ => trimmed.to_string(),
+        }
+    } else {
+        trimmed.to_string()
+    }
 }
 
 /// Mapped thinking configuration (§5.1).
@@ -635,7 +678,7 @@ pub async fn test_llm_connection_impl(
         };
     }
 
-    let effective_model = if let Some(mo) = model_override {
+    let raw_model = if let Some(mo) = model_override {
         if !mo.trim().is_empty() {
             mo.trim().to_string()
         } else if !prov.custom_model.trim().is_empty() {
@@ -648,6 +691,7 @@ pub async fn test_llm_connection_impl(
     } else {
         prov.model.trim().to_string()
     };
+    let effective_model = normalize_google_model_id(provider_id, &raw_model);
 
     let start = Instant::now();
 
@@ -815,7 +859,7 @@ pub async fn run_openai_vibe_edit(
         return Err("Please enter a Vibe instruction prompt.".to_string());
     }
 
-    let model = if let Some(m) = opts.model {
+    let raw_model = if let Some(m) = opts.model {
         if !m.trim().is_empty() {
             m.trim().to_string()
         } else if !prov.custom_model.trim().is_empty() {
@@ -828,6 +872,7 @@ pub async fn run_openai_vibe_edit(
     } else {
         prov.model.trim().to_string()
     };
+    let model = normalize_google_model_id(&provider_id, &raw_model);
 
     let thinking = opts.thinking.unwrap_or_else(|| prov.thinking.clone());
 
@@ -945,8 +990,12 @@ mod tests {
             vec![
                 "gemini-4-argon",
                 "gemini-3.8-flash",
+                "gemini-3.6-flash",
                 "gemini-3.5-flash",
-                "gemini-3.5-flash-lite"
+                "gemini-3.5-flash-lite",
+                "gemini-3.1-flash-lite",
+                "gemma-4-31b-it",
+                "gemma-4-26b-a4b-it",
             ]
         );
         assert!(gemini_native.supports_thinking);
@@ -986,8 +1035,12 @@ mod tests {
             vec![
                 "gemini-4-argon",
                 "gemini-3.8-flash",
+                "gemini-3.6-flash",
                 "gemini-3.5-flash",
-                "gemini-3.5-flash-lite"
+                "gemini-3.5-flash-lite",
+                "gemini-3.1-flash-lite",
+                "gemma-4-31b-it",
+                "gemma-4-26b-a4b-it",
             ]
         );
         assert!(gemini_openai.supports_thinking);
@@ -1002,7 +1055,7 @@ mod tests {
 
     #[test]
     fn test_thinking_mapping_table_exact_spec() {
-        // 1. Gemini Native Gemini 4 / 3 (e.g. gemini-4-argon, gemini-3.8-flash, gemini-3.5-flash)
+        // 1. Gemini Native Gemini 4 / 3 & Gemma 4 (e.g. gemini-4-argon, gemini-3.8-flash, gemini-3.6-flash, gemini-3.1-flash-lite, gemma-4-31b-it, gemma-4-26b-a4b-it)
         assert_eq!(
             map_thinking_setting(PROVIDER_GEMINI_NATIVE, "gemini-4-argon", "low").unwrap(),
             ThinkingMapping::GeminiLevel("LOW".to_string())
@@ -1020,7 +1073,23 @@ mod tests {
             ThinkingMapping::GeminiLevel("MEDIUM".to_string())
         );
         assert_eq!(
+            map_thinking_setting(PROVIDER_GEMINI_NATIVE, "gemini-3.6-flash", "high").unwrap(),
+            ThinkingMapping::GeminiLevel("HIGH".to_string())
+        );
+        assert_eq!(
             map_thinking_setting(PROVIDER_GEMINI_NATIVE, "gemini-3.5-flash", "high").unwrap(),
+            ThinkingMapping::GeminiLevel("HIGH".to_string())
+        );
+        assert_eq!(
+            map_thinking_setting(PROVIDER_GEMINI_NATIVE, "gemini-3.1-flash-lite", "low").unwrap(),
+            ThinkingMapping::GeminiLevel("LOW".to_string())
+        );
+        assert_eq!(
+            map_thinking_setting(PROVIDER_GEMINI_NATIVE, "gemma-4-31b-it", "medium").unwrap(),
+            ThinkingMapping::GeminiLevel("MEDIUM".to_string())
+        );
+        assert_eq!(
+            map_thinking_setting(PROVIDER_GEMINI_NATIVE, "gemma-4-26b-a4b-it", "high").unwrap(),
             ThinkingMapping::GeminiLevel("HIGH".to_string())
         );
         assert_eq!(
@@ -1356,5 +1425,79 @@ mod tests {
         // Timeout
         let err_timeout = format_provider_error(PROVIDER_META, "muse-spark-1.3", None, "operation timed out");
         assert!(err_timeout.contains("Could not reach meta. Request timed out. Check your connection and the base URL, then retry."));
+    }
+
+    #[test]
+    fn test_normalize_google_model_id() {
+        // Native and OpenAI mode aliases
+        assert_eq!(
+            normalize_google_model_id(PROVIDER_GEMINI_NATIVE, "gemma-4-26b"),
+            "gemma-4-26b-a4b-it"
+        );
+        assert_eq!(
+            normalize_google_model_id(PROVIDER_GEMINI_NATIVE, "gemma 4 26b"),
+            "gemma-4-26b-a4b-it"
+        );
+        assert_eq!(
+            normalize_google_model_id(PROVIDER_GEMINI_NATIVE, "gemma-4-26b-it"),
+            "gemma-4-26b-a4b-it"
+        );
+        assert_eq!(
+            normalize_google_model_id(PROVIDER_GEMINI_NATIVE, "gemma-4-31b"),
+            "gemma-4-31b-it"
+        );
+        assert_eq!(
+            normalize_google_model_id(PROVIDER_GEMINI_NATIVE, "gemma 4 31b"),
+            "gemma-4-31b-it"
+        );
+        assert_eq!(
+            normalize_google_model_id(PROVIDER_GEMINI_OPENAI, "gemini-3.6"),
+            "gemini-3.6-flash"
+        );
+        assert_eq!(
+            normalize_google_model_id(PROVIDER_GEMINI_OPENAI, "gemini 3.6 flash"),
+            "gemini-3.6-flash"
+        );
+        assert_eq!(
+            normalize_google_model_id(PROVIDER_GEMINI_NATIVE, "gemini-3.1"),
+            "gemini-3.1-flash-lite"
+        );
+        assert_eq!(
+            normalize_google_model_id(PROVIDER_GEMINI_NATIVE, "gemini 3.1 flash-lite"),
+            "gemini-3.1-flash-lite"
+        );
+        // Already canonical remains untouched
+        assert_eq!(
+            normalize_google_model_id(PROVIDER_GEMINI_NATIVE, "gemma-4-26b-a4b-it"),
+            "gemma-4-26b-a4b-it"
+        );
+        assert_eq!(
+            normalize_google_model_id(PROVIDER_GEMINI_NATIVE, "gemini-3.6-flash"),
+            "gemini-3.6-flash"
+        );
+
+        // OpenRouter prefixed aliases
+        assert_eq!(
+            normalize_google_model_id(PROVIDER_OPENROUTER, "google/gemma-4-26b"),
+            "google/gemma-4-26b-a4b-it"
+        );
+        assert_eq!(
+            normalize_google_model_id(PROVIDER_OPENROUTER, "google/gemma-4-31b"),
+            "google/gemma-4-31b-it"
+        );
+        assert_eq!(
+            normalize_google_model_id(PROVIDER_OPENROUTER, "google/gemini-3.6"),
+            "google/gemini-3.6-flash"
+        );
+        assert_eq!(
+            normalize_google_model_id(PROVIDER_OPENROUTER, "google/gemini-3.1"),
+            "google/gemini-3.1-flash-lite"
+        );
+
+        // Non-Google untouched
+        assert_eq!(
+            normalize_google_model_id(PROVIDER_OPENAI, "gpt-4o-mini"),
+            "gpt-4o-mini"
+        );
     }
 }

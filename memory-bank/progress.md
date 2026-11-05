@@ -1,7 +1,7 @@
 # Progress & Roadmap: Pico
 
 ## Build & Test Status
-- **Rust Backend (`cargo test`):** 21 passed; 0 failed (28.73s).
+- **Rust Backend (`cargo test`):** 22 passed; 0 failed (28.30s).
 - **Frontend Bundle (`pnpm build`):** Builds cleanly (`tsc --noEmit && vite build`), generating Tailwind v4 CSS bundle.
 - **Release Executable (`pnpm run build:bin`):** Compiles standalone release binary to `target/release/pico` (optimized 64-bit ELF on Linux, with embedded starter templates) in 44.67s.
 - **Backend Type Check (`cargo check`):** Clean, 0 warnings.
@@ -10,6 +10,7 @@
 
 | Module / Requirement | Status | Notes |
 | --- | --- | --- |
+| Google Models (Gemma 4 & Gemini 3.6 / 3.1) | Completed | Added support for Gemma 4 26B (`gemma-4-26b-a4b-it`), Gemma 4 31B (`gemma-4-31b-it`), Gemini 3.6 Flash (`gemini-3.6-flash`), and Gemini 3.1 Flash-Lite (`gemini-3.1-flash-lite`). Expanded `default_models` in `gemini-native` and `gemini-openai`, added alias normalization (`normalize_google_model_id` in backend and `normalizeGoogleModelId` in frontend), updated thinking controls & tests, and added friendly labels in Settings. |
 | Vibe Model Editing Support | Completed | Added full support for Vibe to work with collection models (`models/*.yaml`). Added `readModelFile` and `listModels` tools, `proposeEdit` with `targetType: 'model'`, YAML schema and field type validation guardrails, unified diff preview, `save_model_yaml` backend command, and auto-refresh of site collections upon acceptance. |
 | Version Bump `v0.1.1` | Completed | Bumped version to `0.1.1` across `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`. Tagged `v0.1.1` and pushed to origin. |
 | Vibe Stream Error & Log Flooding Fix | Completed | 1) Hooked `onError` into `ToolLoopAgent` and `VibePane.tsx` to capture stream failures (e.g. 503 high demand / 429 quota) instead of swallowing them. 2) Replaced false "completed the requested operation" fallback text with honest error and status messaging. 3) Normalized theme CSS path handling. 4) Suppressed `get_preview_revision` 600ms polling logs in `apiInvoke`. |

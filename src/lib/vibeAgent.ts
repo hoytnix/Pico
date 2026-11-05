@@ -85,8 +85,57 @@ export function formatLlmError(err: unknown, provider: string, model: string): s
   return `${provider} error (${model}): ${msg}`;
 }
 
+export function normalizeGoogleModelId(provider: string, model: string): string {
+  const trimmed = model.trim();
+  const lower = trimmed.toLowerCase();
+
+  if (provider === 'gemini-native' || provider === 'gemini-openai') {
+    switch (lower) {
+      case 'gemma-4-26b':
+      case 'gemma 4 26b':
+      case 'gemma-4-26b-it':
+      case 'gemma-4-26b-a4b':
+        return 'gemma-4-26b-a4b-it';
+      case 'gemma-4-31b':
+      case 'gemma 4 31b':
+        return 'gemma-4-31b-it';
+      case 'gemini-3.6':
+      case 'gemini 3.6':
+      case 'gemini 3.6 flash':
+        return 'gemini-3.6-flash';
+      case 'gemini-3.1':
+      case 'gemini 3.1':
+      case 'gemini 3.1 flash-lite':
+      case 'gemini-3.1-flash':
+        return 'gemini-3.1-flash-lite';
+      default:
+        return trimmed;
+    }
+  } else if (provider === 'openrouter') {
+    switch (lower) {
+      case 'google/gemma-4-26b':
+      case 'google/gemma-4-26b-it':
+      case 'google/gemma-4-26b-a4b':
+        return 'google/gemma-4-26b-a4b-it';
+      case 'google/gemma-4-31b':
+        return 'google/gemma-4-31b-it';
+      case 'google/gemini-3.6':
+      case 'google/gemini 3.6':
+        return 'google/gemini-3.6-flash';
+      case 'google/gemini-3.1':
+      case 'google/gemini 3.1':
+        return 'google/gemini-3.1-flash-lite';
+      default:
+        return trimmed;
+    }
+  }
+
+  return trimmed;
+}
+
 export function buildProviderOptions(config: VibeAgentConfig): Record<string, any> {
-  const { provider, model, thinking } = config;
+  const { provider, thinking } = config;
+  const model = normalizeGoogleModelId(provider, config.model);
 
   if (provider === 'gemini-native') {
     const lowerModel = model.toLowerCase();
@@ -122,7 +171,8 @@ export function buildProviderOptions(config: VibeAgentConfig): Record<string, an
 }
 
 export function createVibeModel(config: VibeAgentConfig) {
-  const { provider, model, apiKey, baseUrl } = config;
+  const { provider, apiKey, baseUrl } = config;
+  const model = normalizeGoogleModelId(provider, config.model);
 
   if (provider === 'gemini-native') {
     const google = createGoogle({ apiKey });

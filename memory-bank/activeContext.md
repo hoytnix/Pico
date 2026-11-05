@@ -1,10 +1,28 @@
 # Active Context: Pico
 
 ## Current Focus
-Implemented full Vibe support for collection models (`models/*.yaml`), enabling Vibe to inspect existing models via `listModels` and `readModelFile`, propose schema edits via `proposeEdit` with `targetType: 'model'`, validate model YAML schema and field types with guardrails, display unified diffs, and save validated models upon user acceptance.
+Added support for new Google models across the LLM subsystem, presets, thinking controls, and connection testing:
+* **Gemma 4 26B** (`gemma-4-26b-a4b-it`)
+* **Gemma 4 31B** (`gemma-4-31b-it`)
+* **Gemini 3.6 Flash** (`gemini-3.6-flash`)
+* **Gemini 3.1 Flash-Lite** (`gemini-3.1-flash-lite`)
 
 ## Recent State Changes
-1. **Vibe Collection Model Support (`models/*.yaml`):**
+1. **Google Models Support (Gemma 4 & Gemini 3.6 / 3.1):**
+   - **Backend Provider Registry (`src-tauri/src/llm.rs`):**
+     - Expanded `default_models` in `get_provider_registry()` for both `gemini-native` and `gemini-openai` to include `gemini-3.6-flash`, `gemini-3.1-flash-lite`, `gemma-4-31b-it`, and `gemma-4-26b-a4b-it`.
+     - Implemented `normalize_google_model_id` to normalize model aliases (e.g. `gemma-4-26b`, `gemma 4 26b`, `gemma-4-26b-it` -> `gemma-4-26b-a4b-it`; `gemma-4-31b` -> `gemma-4-31b-it`; `gemini-3.6` -> `gemini-3.6-flash`; `gemini-3.1` -> `gemini-3.1-flash-lite`; and `google/` OpenRouter prefixed variants).
+     - Applied model normalization in `test_llm_connection_impl` and `execute_backend_vibe_turn`.
+     - Added comprehensive unit tests in `test_normalize_google_model_id` and updated `test_provider_registry_ids_urls_and_order` and `test_thinking_mapping_table_exact_spec` verifying thinking level mapping for Gemma 4 and Gemini 3.6 / 3.1.
+   - **Frontend Vibe Agent & Normalization (`src/lib/vibeAgent.ts`):**
+     - Implemented `normalizeGoogleModelId` helper to normalize model IDs in frontend calls.
+     - Updated `createVibeModel` and `buildProviderOptions` to normalize models before initializing `@ai-sdk/google` or OpenAI-compatible providers, ensuring thinkingLevel is passed for all Gemini 3/4 and Gemma 4 models.
+   - **UI & Settings Modal (`src/components/settings/SettingsModal.tsx`):**
+     - Added `MODEL_DISPLAY_LABELS` to present human-readable model labels in the preset dropdown (e.g. `gemini-3.6-flash (Gemini 3.6 Flash)`, `gemma-4-26b-a4b-it (Gemma 4 26B)`).
+     - Normalized `effectiveModel` so test connections and saves always use canonical model IDs even if shorthand was typed in the custom model field.
+   - **Documentation (`README.md`):**
+     - Updated providers table and thinking mode notes in `README.md` with the new Google models.
+2. **Vibe Collection Model Support (`models/*.yaml`):**
    - **Backend (`src-tauri/src/vibe.rs` & `models.rs`):**
      - Updated `VibeTarget` kind to include `"model"`.
      - Added `"model"` system prompt instructions in `build_vibe_system_prompt`, explaining model schema structure, valid field types (`string`, `date`, `tags`, `image`, `bool`), and existing collection models in the site.

@@ -14,6 +14,7 @@ import {
   RotateCw,
 } from 'lucide-react';
 import { picoApi } from '../../api';
+import { normalizeGoogleModelId } from '../../lib/vibeAgent';
 import type {
   LlmSettingsView,
   ProviderInfo,
@@ -29,6 +30,17 @@ interface SettingsModalProps {
   onSettingsSaved?: () => void;
   isInline?: boolean;
 }
+
+const MODEL_DISPLAY_LABELS: Record<string, string> = {
+  'gemini-4-argon': 'gemini-4-argon (Gemini 4 Argon)',
+  'gemini-3.8-flash': 'gemini-3.8-flash (Gemini 3.8 Flash)',
+  'gemini-3.6-flash': 'gemini-3.6-flash (Gemini 3.6 Flash)',
+  'gemini-3.5-flash': 'gemini-3.5-flash (Gemini 3.5 Flash)',
+  'gemini-3.5-flash-lite': 'gemini-3.5-flash-lite (Gemini 3.5 Flash-Lite)',
+  'gemini-3.1-flash-lite': 'gemini-3.1-flash-lite (Gemini 3.1 Flash-Lite)',
+  'gemma-4-31b-it': 'gemma-4-31b-it (Gemma 4 31B)',
+  'gemma-4-26b-a4b-it': 'gemma-4-26b-a4b-it (Gemma 4 26B)',
+};
 
 export function SettingsModal({ isOpen, onClose, onSettingsSaved, isInline = false }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<'llm' | 'site'>('llm');
@@ -116,7 +128,8 @@ export function SettingsModal({ isOpen, onClose, onSettingsSaved, isInline = fal
 
   const currentRegistryInfo = providersRegistry.find((r) => r.id === selectedProviderId);
   const currentProviderView = llmSettings?.providers[selectedProviderId];
-  const effectiveModel = customModelInput.trim() || selectedModel;
+  const rawModel = customModelInput.trim() || selectedModel;
+  const effectiveModel = normalizeGoogleModelId(selectedProviderId, rawModel);
 
   const isGeminiNative = selectedProviderId === 'gemini-native';
   const isMuseSpark = selectedProviderId === 'meta';
@@ -306,7 +319,7 @@ export function SettingsModal({ isOpen, onClose, onSettingsSaved, isInline = fal
                     >
                       {currentRegistryInfo.default_models.map((m) => (
                         <option key={m} value={m}>
-                          {m}
+                          {MODEL_DISPLAY_LABELS[m] || m}
                         </option>
                       ))}
                     </select>
