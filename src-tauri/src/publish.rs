@@ -1,4 +1,4 @@
-use crate::models::{PersistedAppSettings, PublishResult};
+use crate::models::PublishResult;
 use std::path::Path;
 use std::process::Command;
 
@@ -24,7 +24,7 @@ fn parse_github_owner_repo(remote_url: &str) -> Option<(String, String)> {
 
 pub async fn publish_to_github_pages(
     site_root: &Path,
-    settings: &PersistedAppSettings,
+    github_token: &str,
 ) -> PublishResult {
     log::info!(target: "pico::publish", "Publishing site at {:?} to GitHub Pages...", site_root);
     let out_dir = site_root.join("out");
@@ -175,12 +175,12 @@ pub async fn publish_to_github_pages(
     }
 
     // 5. If GitHub token is configured in Settings, ensure GitHub Pages is enabled on `gh-pages` branch
-    if !settings.github_token.trim().is_empty() {
+    if !github_token.trim().is_empty() {
         let api_url = format!("https://api.github.com/repos/{}/{}/pages", owner, repo);
         let client = reqwest::Client::new();
         let _ = client
             .post(&api_url)
-            .bearer_auth(settings.github_token.trim())
+            .bearer_auth(github_token.trim())
             .header("User-Agent", "Pico-SSG")
             .header("Accept", "application/vnd.github+json")
             .json(&serde_json::json!({

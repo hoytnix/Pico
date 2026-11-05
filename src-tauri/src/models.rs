@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::path::PathBuf;
-use std::sync::atomic::AtomicU64;
-use std::sync::{Arc, Mutex};
+
+// Re-export runtime AppState and PreviewServerHandle from state module
+pub use crate::state::{AppState, PreviewServerHandle};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct NavItem {
@@ -323,59 +323,4 @@ pub struct PublishResult {
     pub url: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct PersistedAppSettings {
-    #[serde(default = "default_llm_endpoint")]
-    pub llm_endpoint: String,
-    #[serde(default = "default_llm_model")]
-    pub llm_model: String,
-    #[serde(default)]
-    pub llm_api_key: String,
-    #[serde(default)]
-    pub github_token: String,
-    #[serde(default)]
-    pub recent_sites: Vec<RecentSite>,
-}
 
-pub fn default_llm_endpoint() -> String {
-    "https://api.openai.com/v1/chat/completions".to_string()
-}
-
-pub fn default_llm_model() -> String {
-    "gpt-4o-mini".to_string()
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AppSettingsView {
-    pub llm_endpoint: String,
-    pub llm_model: String,
-    pub has_llm_key: bool,
-    pub has_github_token: bool,
-    pub storage_notice: String,
-}
-
-pub struct PreviewServerHandle {
-    pub port: u16,
-    pub out_dir: PathBuf,
-    pub revision: Arc<AtomicU64>,
-}
-
-pub struct AppState {
-    pub current_site: Mutex<Option<PathBuf>>,
-    pub template_backups: Mutex<HashMap<String, Vec<String>>>,
-    pub preview_server: Mutex<Option<PreviewServerHandle>>,
-    pub watcher_handle: Mutex<Option<notify::RecommendedWatcher>>,
-    pub preview_revision: Arc<AtomicU64>,
-}
-
-impl Default for AppState {
-    fn default() -> Self {
-        Self {
-            current_site: Mutex::new(None),
-            template_backups: Mutex::new(HashMap::new()),
-            preview_server: Mutex::new(None),
-            watcher_handle: Mutex::new(None),
-            preview_revision: Arc::new(AtomicU64::new(1)),
-        }
-    }
-}

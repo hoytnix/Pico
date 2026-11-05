@@ -5,7 +5,6 @@ import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { createVibeModel, buildProviderOptions, formatLlmError } from "./lib/vibeAgent";
 import { picoLog } from "./lib/logger";
 import type {
-  AppSettingsView,
   BuildResult,
   GroundingSource,
   LlmSettingsView,
@@ -287,16 +286,5 @@ export const picoApi = {
   },
   saveSiteConfig(config: SiteConfig): Promise<void> {
     return apiInvoke<void>("save_site_config", { config });
-  },
-  getAppSettings(): Promise<AppSettingsView> {
-    return apiInvoke<AppSettingsView>("get_app_settings");
-  },
-  saveAppSettings(params: {
-    llmEndpoint: string;
-    llmModel: string;
-    llmApiKey?: string | null;
-    githubToken?: string | null;
-  }): Promise<AppSettingsView> {
-    return apiInvoke<AppSettingsView>("save_app_settings", params);
   },
 };

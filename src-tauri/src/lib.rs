@@ -6,6 +6,7 @@ pub mod models;
 pub mod preview;
 pub mod publish;
 pub mod starters;
+pub mod state;
 pub mod storage;
 pub mod validation;
 pub mod vibe;
@@ -15,8 +16,8 @@ pub use starters::{
     copy_starter_pack, extract_embedded_starter, resolve_starters_dir, EMBEDDED_STARTERS,
 };
 pub use storage::{
-    app_config_file_path, load_persisted_llm_settings, load_persisted_settings, record_recent_site,
-    save_persisted_llm_settings, save_persisted_settings,
+    app_config_file_path, load_persisted_llm_settings, record_recent_site,
+    save_persisted_llm_settings,
 };
 
 use crate::models::AppState;
@@ -63,8 +64,6 @@ pub fn run() {
             publish_github_pages,
             get_site_config,
             save_site_config,
-            get_app_settings,
-            save_app_settings,
             list_llm_providers,
             get_llm_settings,
             save_llm_settings,

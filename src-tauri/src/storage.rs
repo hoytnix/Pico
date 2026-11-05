@@ -1,4 +1,4 @@
-use crate::models::{LlmAppSettings, PersistedAppSettings, RecentSite};
+use crate::models::{LlmAppSettings, RecentSite};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -33,55 +33,7 @@ pub fn save_persisted_llm_settings(settings: &LlmAppSettings) -> Result<(), Stri
     fs::write(&path, json).map_err(|e| format!("Failed to save app settings: {}", e))
 }
 
-pub fn load_persisted_settings() -> PersistedAppSettings {
-    let llm = load_persisted_llm_settings();
-    let (ep, md, key) = if let Some(p) = llm.providers.get(&llm.current_provider) {
-        let effective_m = if !p.custom_model.trim().is_empty() {
-            p.custom_model.clone()
-        } else {
-            p.model.clone()
-        };
-        (p.base_url.clone(), effective_m, p.api_key.clone())
-    } else {
-        (
-            crate::models::default_llm_endpoint(),
-            crate::models::default_llm_model(),
-            String::new(),
-        )
-    };
-    PersistedAppSettings {
-        llm_endpoint: ep,
-        llm_model: md,
-        llm_api_key: key,
-        github_token: llm.github_token,
-        recent_sites: llm.recent_sites,
-    }
-}
 
-pub fn save_persisted_settings(settings: &PersistedAppSettings) -> Result<(), String> {
-    let mut llm = load_persisted_llm_settings();
-    llm.github_token = settings.github_token.clone();
-    llm.recent_sites = settings.recent_sites.clone();
-    let current_prov = if llm.current_provider.is_empty() {
-        crate::llm::PROVIDER_OPENAI.to_string()
-    } else {
-        llm.current_provider.clone()
-    };
-    let entry = llm.providers.entry(current_prov).or_insert_with(|| crate::models::ProviderSettings {
-        api_key: String::new(),
-        base_url: settings.llm_endpoint.clone(),
-        model: settings.llm_model.clone(),
-        custom_model: String::new(),
-        thinking: "medium".to_string(),
-        grounding: false,
-    });
-    entry.base_url = settings.llm_endpoint.clone();
-    entry.model = settings.llm_model.clone();
-    if !settings.llm_api_key.trim().is_empty() {
-        entry.api_key = settings.llm_api_key.trim().to_string();
-    }
-    save_persisted_llm_settings(&llm)
-}
 
 pub fn record_recent_site(site_root: &Path, title: &str) -> Vec<RecentSite> {
     let mut settings = load_persisted_llm_settings();

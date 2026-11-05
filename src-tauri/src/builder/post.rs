@@ -1,8 +1,100 @@
 use crate::models::PostMeta;
+use crate::validation::slugify;
 use pulldown_cmark::{html, Event, Options, Parser, Tag, TagEnd};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::path::Path;
+
+/// Standard extracted frontmatter attributes common to both content scanning and IPC listing.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExtractedFrontmatter {
+    pub title: String,
+    pub date: String,
+    pub slug: String,
+    pub draft: bool,
+    pub excerpt: String,
+    pub hero: String,
+    pub tags: Vec<String>,
+}
+
+impl ExtractedFrontmatter {
+    pub fn from_value(fm: &Value) -> Option<Self> {
+        let obj = fm.as_object()?;
+        let title = obj
+            .get("title")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Untitled")
+            .to_string();
+        let date = obj
+            .get("date")
+            .and_then(|v| v.as_str())
+            .unwrap_or("1970-01-01")
+            .to_string();
+        let raw_slug = obj
+            .get("slug")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim();
+        let slug = if raw_slug.is_empty() {
+            slugify(&title)
+        } else {
+            slugify(raw_slug)
+        };
+        let draft = obj
+            .get("draft")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let excerpt = obj
+            .get("excerpt")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let hero = obj
+            .get("hero")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let tags: Vec<String> = match obj.get("tags") {
+            Some(Value::Array(arr)) => arr
+                .iter()
+                .filter_map(|v| v.as_str().map(|s| s.trim().to_string()))
+                .filter(|s| !s.is_empty())
+                .collect(),
+            Some(Value::String(s)) => s
+                .split(',')
+                .map(|t| t.trim().to_string())
+                .filter(|t| !t.is_empty())
+                .collect(),
+            _ => Vec::new(),
+        };
+
+        Some(Self {
+            title,
+            date,
+            slug,
+            draft,
+            excerpt,
+            hero,
+            tags,
+        })
+    }
+
+    pub fn into_post_meta(self, rel_path: &str, folder_name: &str, collection: &str) -> PostMeta {
+        let url = format!("/{}/{}/", folder_name, self.slug);
+        PostMeta {
+            title: self.title,
+            date: self.date,
+            slug: self.slug,
+            draft: self.draft,
+            path: rel_path.to_string(),
+            url,
+            collection: collection.to_string(),
+            excerpt: self.excerpt,
+            tags: self.tags,
+            hero: self.hero,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BuiltPost {

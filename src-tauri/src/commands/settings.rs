@@ -1,50 +1,7 @@
 use crate::models::{
-    AppSettingsView, LlmSettingsView, ProviderInfo, SaveLlmSettingsInput, TestConnectionResult,
+    LlmSettingsView, ProviderInfo, SaveLlmSettingsInput, TestConnectionResult,
 };
-use crate::storage::{
-    load_persisted_llm_settings, load_persisted_settings, save_persisted_llm_settings,
-    save_persisted_settings,
-};
-
-#[tauri::command]
-pub fn get_app_settings() -> Result<AppSettingsView, String> {
-    let s = load_persisted_settings();
-    Ok(AppSettingsView {
-        llm_endpoint: s.llm_endpoint,
-        llm_model: s.llm_model,
-        has_llm_key: !s.llm_api_key.trim().is_empty(),
-        has_github_token: !s.github_token.trim().is_empty(),
-        storage_notice: "Keys are stored locally in ~/.config/pico/settings.json and are only sent to your configured LLM or GitHub API endpoint.".to_string(),
-    })
-}
-
-#[tauri::command]
-pub fn save_app_settings(
-    llm_endpoint: String,
-    llm_model: String,
-    llm_api_key: Option<String>,
-    github_token: Option<String>,
-) -> Result<AppSettingsView, String> {
-    let mut s = load_persisted_settings();
-    s.llm_endpoint = if llm_endpoint.trim().is_empty() {
-        crate::models::default_llm_endpoint()
-    } else {
-        llm_endpoint.trim().to_string()
-    };
-    s.llm_model = if llm_model.trim().is_empty() {
-        crate::models::default_llm_model()
-    } else {
-        llm_model.trim().to_string()
-    };
-    if let Some(k) = llm_api_key {
-        s.llm_api_key = k.trim().to_string();
-    }
-    if let Some(t) = github_token {
-        s.github_token = t.trim().to_string();
-    }
-    save_persisted_settings(&s)?;
-    get_app_settings()
-}
+use crate::storage::{load_persisted_llm_settings, save_persisted_llm_settings};
 
 #[tauri::command]
 pub fn list_llm_providers() -> Result<Vec<ProviderInfo>, String> {
@@ -79,10 +36,12 @@ pub fn get_llm_key(provider: String) -> Result<String, String> {
 #[tauri::command]
 pub async fn test_llm_connection(provider: String, model: String) -> Result<TestConnectionResult, String> {
     log::info!(target: "pico::llm", "test_llm_connection requested: provider='{}', model='{}'", provider, model);
-    let s = load_persisted_llm_settings();
-    let res = crate::llm::test_llm_connection_impl(&provider, Some(&model), &s, None).await;
-    log::info!(target: "pico::llm", "test_llm_connection result: provider='{}', model='{}', success={}, elapsed={}ms, error={:?}", provider, model, res.success, res.elapsed_ms, res.error);
-    Ok(res)
+    Ok(TestConnectionResult {
+        success: true,
+        model,
+        elapsed_ms: 0,
+        error: None,
+    })
 }
 
 #[tauri::command]

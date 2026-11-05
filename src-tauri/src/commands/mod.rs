@@ -26,8 +26,8 @@ pub use models::{
     delete_model, delete_model_impl, list_models, save_model, save_model_impl, save_model_yaml,
 };
 pub use settings::{
-    get_app_settings, get_llm_key, get_llm_settings, list_llm_providers, log_frontend,
-    save_app_settings, save_llm_settings, test_llm_connection,
+    get_llm_key, get_llm_settings, list_llm_providers, log_frontend,
+    save_llm_settings, test_llm_connection,
 };
 pub use site::{
     build_site, create_site, create_site_impl, export_site, export_site_impl, get_preview_revision,

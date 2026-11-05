@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 use tauri::State;
 
-use crate::builder::{load_models, resolve_collection_folder};
+use crate::builder::{load_models, resolve_collection_folder, ExtractedFrontmatter};
 use crate::models::{AppState, ModelDef, PostDocument, PostMeta};
 use crate::validation::{
     parse_markdown_document, serialize_markdown_document, slugify, validate_frontmatter,
@@ -31,67 +31,8 @@ pub fn list_content_impl(site_root: &Path, collection: &str) -> Result<Vec<PostM
                 .replace('\\', "/");
             if let Ok(raw) = fs::read_to_string(&p) {
                 if let Ok((fm, _, _)) = parse_markdown_document(&raw, &rel_path) {
-                    if let Some(obj) = fm.as_object() {
-                        let title = obj
-                            .get("title")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("Untitled")
-                            .to_string();
-                        let date = obj
-                            .get("date")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("1970-01-01")
-                            .to_string();
-                        let raw_slug = obj
-                            .get("slug")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("")
-                            .trim();
-                        let slug = if raw_slug.is_empty() {
-                            slugify(&title)
-                        } else {
-                            slugify(raw_slug)
-                        };
-                        let draft = obj
-                            .get("draft")
-                            .and_then(|v| v.as_bool())
-                            .unwrap_or(false);
-                        let excerpt = obj
-                            .get("excerpt")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("")
-                            .to_string();
-                        let hero = obj
-                            .get("hero")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("")
-                            .to_string();
-                        let tags: Vec<String> = match obj.get("tags") {
-                            Some(Value::Array(arr)) => arr
-                                .iter()
-                                .filter_map(|v| v.as_str().map(|s| s.trim().to_string()))
-                                .filter(|s| !s.is_empty())
-                                .collect(),
-                            Some(Value::String(s)) => s
-                                .split(',')
-                                .map(|t| t.trim().to_string())
-                                .filter(|t| !t.is_empty())
-                                .collect(),
-                            _ => Vec::new(),
-                        };
-                        let url = format!("/{}/{}/", folder_name, slug);
-                        posts.push(PostMeta {
-                            title,
-                            date,
-                            slug,
-                            draft,
-                            path: rel_path,
-                            url,
-                            collection: collection.to_string(),
-                            excerpt,
-                            tags,
-                            hero,
-                        });
+                    if let Some(extracted) = ExtractedFrontmatter::from_value(&fm) {
+                        posts.push(extracted.into_post_meta(&rel_path, &folder_name, collection));
                     }
                 }
             }

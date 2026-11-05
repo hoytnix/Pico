@@ -1,16 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  Play,
-  RotateCw,
-  ExternalLink,
-  PackageCheck,
-  UploadCloud,
-  CheckCircle2,
-  AlertCircle,
-  FolderUp,
-} from 'lucide-react';
-import { picoApi, openUrlInBrowser, pickFolderDialog } from '../../api';
+import { picoApi, pickFolderDialog } from '../../api';
 import type { BuildResult, SiteInfo } from '../../types';
+import { PreviewHeaderBar } from './PreviewHeaderBar';
+import { BuildBanner } from './BuildBanner';
 
 interface PreviewPaneProps {
   currentSite: SiteInfo | null;
@@ -84,15 +76,19 @@ export function PreviewPane({ currentSite }: PreviewPaneProps) {
     };
   }, [serverStatus, previewUrl]);
 
+  const handleReload = () => {
+    if (iframeRef.current && previewUrl) {
+      iframeRef.current.src = previewUrl;
+    }
+  };
+
   const handleBuild = async () => {
     setIsBuilding(true);
     setBuildResult(null);
     try {
       const res = await picoApi.buildSite(includeDrafts);
       setBuildResult(res);
-      if (iframeRef.current && previewUrl) {
-        iframeRef.current.src = previewUrl;
-      }
+      handleReload();
     } catch (err: any) {
       setBuildResult({
         success: false,
@@ -137,133 +133,21 @@ export function PreviewPane({ currentSite }: PreviewPaneProps) {
 
   return (
     <div className="preview-pane flex flex-col h-full bg-neutral-950 text-neutral-100">
-      {/* Header — Build/Export & EXACTLY ONE Live Preview Server bar (§9) */}
-      <div className="preview-header flex items-center justify-between px-6 py-2.5 bg-neutral-900 border-b border-neutral-800 flex-wrap gap-3">
-        {/* Authoritative Single Live Preview Server bar (§9) */}
-        <div className="flex items-center gap-2.5 text-xs">
-          <span className="font-semibold text-neutral-300">Live Preview Server:</span>
-          {serverStatus === 'starting' && (
-            <span className="text-amber-400 flex items-center gap-1.5 animate-pulse">
-              <span className="w-2 h-2 rounded-full bg-amber-400" />
-              Starting preview server…
-            </span>
-          )}
-          {serverStatus === 'live' && previewUrl && (
-            <div className="flex items-center gap-2">
-              <span className="text-emerald-400 font-mono font-medium flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                {previewUrl}
-              </span>
-              <button
-                type="button"
-                onClick={() => openUrlInBrowser(previewUrl)}
-                className="p-1 rounded hover:bg-neutral-800 text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer"
-                title="Open preview in system browser"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (iframeRef.current && previewUrl) {
-                    iframeRef.current.src = previewUrl;
-                  }
-                }}
-                className="p-1 rounded hover:bg-neutral-800 text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer"
-                title="Reload preview"
-              >
-                <RotateCw className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
-          {serverStatus === 'error' && (
-            <span className="text-red-400 flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" />
-              {serverError || 'Failed to start server'}
-            </span>
-          )}
-        </div>
+      <PreviewHeaderBar
+        serverStatus={serverStatus}
+        previewUrl={previewUrl}
+        serverError={serverError}
+        includeDrafts={includeDrafts}
+        onToggleDrafts={setIncludeDrafts}
+        isBuilding={isBuilding}
+        onBuild={handleBuild}
+        onExport={handleExport}
+        isPublishing={isPublishing}
+        onPublish={handlePublish}
+        onReload={handleReload}
+      />
 
-        {/* Build & Export Controls */}
-        <div className="flex items-center gap-2.5">
-          <label className="flex items-center gap-1.5 text-xs text-neutral-300 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={includeDrafts}
-              onChange={(e) => setIncludeDrafts(e.target.checked)}
-              className="rounded border-neutral-700 bg-neutral-800 text-indigo-600 focus:ring-0"
-            />
-            <span>Drafts</span>
-          </label>
-
-          <button
-            type="button"
-            onClick={handleBuild}
-            disabled={isBuilding}
-            className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-sm"
-          >
-            <PackageCheck className="w-3.5 h-3.5" />
-            <span>{isBuilding ? 'Building…' : 'Build Site'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleExport}
-            className="px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5"
-          >
-            <FolderUp className="w-3.5 h-3.5" />
-            <span>Export…</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handlePublish}
-            disabled={isPublishing}
-            className="px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5"
-            title="Publish to GitHub Pages"
-          >
-            <UploadCloud className="w-3.5 h-3.5" />
-            <span>{isPublishing ? 'Publishing…' : 'GitHub Pages'}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Build / Publish Status Banner */}
-      {buildResult && (
-        <div
-          className={`px-6 py-2 text-xs border-b flex items-center justify-between ${
-            buildResult.success
-              ? 'bg-emerald-950/40 border-emerald-800 text-emerald-300'
-              : 'bg-red-950/40 border-red-800 text-red-300'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            {buildResult.success ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            ) : (
-              <AlertCircle className="w-4 h-4 text-red-400" />
-            )}
-            <span>
-              {buildResult.success
-                ? `Build succeeded: ${buildResult.pages_built} pages built, ${buildResult.images_generated} images optimized.`
-                : `Build failed with ${buildResult.errors.length} error(s).`}
-            </span>
-          </div>
-          {buildResult.errors.length > 0 && (
-            <div className="text-right">
-              {buildResult.errors[0].file}:{buildResult.errors[0].line} —{' '}
-              {buildResult.errors[0].message}
-            </div>
-          )}
-        </div>
-      )}
-
-      {publishMessage && (
-        <div className="px-6 py-2 bg-indigo-950/40 border-b border-indigo-800 text-indigo-300 text-xs flex items-center gap-2">
-          <UploadCloud className="w-3.5 h-3.5 text-indigo-400" />
-          <span>{publishMessage}</span>
-        </div>
-      )}
+      <BuildBanner buildResult={buildResult} publishMessage={publishMessage} />
 
       {/* Live Preview Iframe */}
       <div className="flex-1 bg-white relative overflow-hidden">

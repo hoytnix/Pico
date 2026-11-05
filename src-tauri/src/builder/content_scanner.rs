@@ -1,10 +1,9 @@
 use crate::builder::models_loader::resolve_collection_folder;
-use crate::builder::post::{derive_image_variant_paths, render_markdown_to_html, BuiltPost};
-use crate::models::{BuildError, ModelDef};
-use crate::validation::{
-    check_duplicate_slugs, parse_markdown_document, slugify, validate_frontmatter,
+use crate::builder::post::{
+    derive_image_variant_paths, render_markdown_to_html, BuiltPost, ExtractedFrontmatter,
 };
-use serde_json::Value;
+use crate::models::{BuildError, ModelDef};
+use crate::validation::{check_duplicate_slugs, parse_markdown_document, validate_frontmatter};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -84,73 +83,27 @@ pub fn scan_collection_content(
                 }
 
                 let obj = fm_val.as_object().unwrap();
-                let draft = obj
-                    .get("draft")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
+                let extracted = match ExtractedFrontmatter::from_value(&fm_val) {
+                    Some(e) => e,
+                    None => continue,
+                };
 
                 // Step 2: Filter drafts unless include_drafts is true
-                if draft && !include_drafts {
+                if extracted.draft && !include_drafts {
                     log.push(format!("Skipped draft: {}", rel_path));
                     continue;
                 }
 
-                let title = obj
-                    .get("title")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("Untitled")
-                    .to_string();
-                let date = obj
-                    .get("date")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("1970-01-01")
-                    .to_string();
-                let raw_slug = obj
-                    .get("slug")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .trim();
-                let slug = if raw_slug.is_empty() {
-                    slugify(&title)
-                } else {
-                    slugify(raw_slug)
-                };
-
-                slug_entries.push((rel_path.clone(), slug.clone(), 2));
-
-                let excerpt = obj
-                    .get("excerpt")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-                let hero = obj
-                    .get("hero")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-
-                let tags: Vec<String> = match obj.get("tags") {
-                    Some(Value::Array(arr)) => arr
-                        .iter()
-                        .filter_map(|v| v.as_str().map(|s| s.trim().to_string()))
-                        .filter(|s| !s.is_empty())
-                        .collect(),
-                    Some(Value::String(s)) => s
-                        .split(',')
-                        .map(|t| t.trim().to_string())
-                        .filter(|t| !t.is_empty())
-                        .collect(),
-                    _ => Vec::new(),
-                };
+                slug_entries.push((rel_path.clone(), extracted.slug.clone(), 2));
 
                 // Step 3: Render Markdown body to HTML with pulldown-cmark (GFM)
                 let (body_html, body_text, markdown_images) =
                     render_markdown_to_html(&markdown_body);
 
-                let url = format!("/{}/{}/", folder_name, slug);
+                let url = format!("/{}/{}/", folder_name, extracted.slug);
 
                 // Check page attachments in `content/<folder_name>/<slug>/`
-                let attach_dir = col_dir.join(&slug);
+                let attach_dir = col_dir.join(&extracted.slug);
                 let mut attachments: Vec<String> = Vec::new();
                 if attach_dir.is_dir() {
                     let mut att_files: Vec<PathBuf> = fs::read_dir(&attach_dir)
@@ -169,8 +122,8 @@ pub fn scan_collection_content(
                 }
 
                 // Derive WebP URLs if hero is PNG/JPG
-                let (hero_webp, thumb_webp) = if !hero.is_empty() {
-                    if let Some((hw, tw)) = derive_image_variant_paths(&hero) {
+                let (hero_webp, thumb_webp) = if !extracted.hero.is_empty() {
+                    if let Some((hw, tw)) = derive_image_variant_paths(&extracted.hero) {
                         let hw_url = if hw.starts_with('/') || hw.starts_with("http") {
                             hw
                         } else {
@@ -182,11 +135,11 @@ pub fn scan_collection_content(
                             format!("{}{}", url, tw)
                         };
                         (hw_url, tw_url)
-                    } else if hero.ends_with(".webp") {
-                        let u = if hero.starts_with('/') || hero.starts_with("http") {
-                            hero.clone()
+                    } else if extracted.hero.ends_with(".webp") {
+                        let u = if extracted.hero.starts_with('/') || extracted.hero.starts_with("http") {
+                            extracted.hero.clone()
                         } else {
-                            format!("{}{}", url, hero)
+                            format!("{}{}", url, extracted.hero)
                         };
                         (u.clone(), u)
                     } else {
@@ -197,15 +150,15 @@ pub fn scan_collection_content(
                 };
 
                 built_for_col.push(BuiltPost {
-                    title,
-                    date,
-                    slug,
-                    draft,
-                    excerpt,
-                    hero,
+                    title: extracted.title,
+                    date: extracted.date,
+                    slug: extracted.slug,
+                    draft: extracted.draft,
+                    excerpt: extracted.excerpt,
+                    hero: extracted.hero,
                     hero_webp,
                     thumb_webp,
-                    tags,
+                    tags: extracted.tags,
                     url,
                     collection: folder_name.clone(),
                     body: markdown_body,

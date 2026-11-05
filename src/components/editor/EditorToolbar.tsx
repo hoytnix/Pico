@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
 import type { Editor } from '@tiptap/react';
 import {
   Bold,
@@ -6,23 +6,17 @@ import {
   Underline as UnderlineIcon,
   Strikethrough,
   Code,
-  Heading1,
-  Heading2,
-  Heading3,
   List,
   ListOrdered,
   CheckSquare,
   Quote,
-  Table as TableIcon,
-  Columns,
-  Rows,
-  Trash2,
   Minus,
   Image as ImageIcon,
   Undo,
   Redo,
-  ChevronDown,
 } from 'lucide-react';
+import { HeadingDropdown } from './toolbar/HeadingDropdown';
+import { TableControls } from './toolbar/TableControls';
 
 interface EditorToolbarProps {
   editor: Editor | null;
@@ -30,88 +24,12 @@ interface EditorToolbarProps {
 }
 
 export function EditorToolbar({ editor, onPickImage }: EditorToolbarProps) {
-  const [headingOpen, setHeadingOpen] = useState(false);
-  const headingMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (headingMenuRef.current && !headingMenuRef.current.contains(e.target as Node)) {
-        setHeadingOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   if (!editor) return null;
-
-  const currentHeadingLabel = () => {
-    if (editor.isActive('heading', { level: 1 })) return 'H1';
-    if (editor.isActive('heading', { level: 2 })) return 'H2';
-    if (editor.isActive('heading', { level: 3 })) return 'H3';
-    return 'Text';
-  };
-
-  const isTableActive = editor.isActive('table');
 
   return (
     <div className="editor-toolbar flex items-center flex-wrap gap-1 p-2 bg-neutral-900 border-b border-neutral-800 text-neutral-300 select-none">
-      {/* Heading Selector Popover */}
-      <div className="relative" ref={headingMenuRef}>
-        <button
-          type="button"
-          onClick={() => setHeadingOpen(!headingOpen)}
-          className="flex items-center gap-1 px-2.5 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs font-medium cursor-pointer"
-          title="Headings"
-        >
-          <span>{currentHeadingLabel()}</span>
-          <ChevronDown className="w-3.5 h-3.5 opacity-70" />
-        </button>
-        {headingOpen && (
-          <div className="absolute top-full left-0 mt-1 w-32 bg-neutral-900 border border-neutral-700 rounded-md shadow-xl py-1 z-50">
-            <button
-              type="button"
-              onClick={() => {
-                editor.chain().focus().setParagraph().run();
-                setHeadingOpen(false);
-              }}
-              className="w-full text-left px-3 py-1.5 text-xs hover:bg-neutral-800 flex items-center gap-2"
-            >
-              Paragraph
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                editor.chain().focus().toggleHeading({ level: 1 }).run();
-                setHeadingOpen(false);
-              }}
-              className="w-full text-left px-3 py-1.5 text-xs hover:bg-neutral-800 flex items-center gap-2 font-bold"
-            >
-              <Heading1 className="w-3.5 h-3.5 text-indigo-400" /> Heading 1
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                editor.chain().focus().toggleHeading({ level: 2 }).run();
-                setHeadingOpen(false);
-              }}
-              className="w-full text-left px-3 py-1.5 text-xs hover:bg-neutral-800 flex items-center gap-2 font-semibold"
-            >
-              <Heading2 className="w-3.5 h-3.5 text-indigo-400" /> Heading 2
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                editor.chain().focus().toggleHeading({ level: 3 }).run();
-                setHeadingOpen(false);
-              }}
-              className="w-full text-left px-3 py-1.5 text-xs hover:bg-neutral-800 flex items-center gap-2 font-medium"
-            >
-              <Heading3 className="w-3.5 h-3.5 text-indigo-400" /> Heading 3
-            </button>
-          </div>
-        )}
-      </div>
+      {/* Heading Selector */}
+      <HeadingDropdown editor={editor} />
 
       <div className="h-4 w-px bg-neutral-700 mx-1" />
 
@@ -241,60 +159,8 @@ export function EditorToolbar({ editor, onPickImage }: EditorToolbarProps) {
         <Minus className="w-4 h-4" />
       </button>
 
-      {/* Table */}
-      <button
-        type="button"
-        onClick={() => {
-          if (!isTableActive) {
-            editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
-          } else {
-            editor.chain().focus().deleteTable().run();
-          }
-        }}
-        className={`p-1.5 rounded hover:bg-neutral-800 transition-colors cursor-pointer ${
-          isTableActive ? 'bg-indigo-600 text-white' : 'text-neutral-400'
-        }`}
-        title={isTableActive ? 'Delete Table' : 'Insert Table (3x3)'}
-      >
-        <TableIcon className="w-4 h-4" />
-      </button>
-
-      {isTableActive && (
-        <div className="flex items-center gap-1 bg-neutral-800 px-1.5 py-0.5 rounded">
-          <button
-            type="button"
-            onClick={() => editor.chain().focus().addColumnAfter().run()}
-            className="p-1 rounded hover:bg-neutral-700 text-neutral-300 text-xs flex items-center gap-0.5"
-            title="Add Column"
-          >
-            <Columns className="w-3 h-3 text-indigo-400" /> +
-          </button>
-          <button
-            type="button"
-            onClick={() => editor.chain().focus().deleteColumn().run()}
-            className="p-1 rounded hover:bg-neutral-700 text-neutral-300 text-xs flex items-center gap-0.5"
-            title="Delete Column"
-          >
-            <Columns className="w-3 h-3 text-red-400" /> -
-          </button>
-          <button
-            type="button"
-            onClick={() => editor.chain().focus().addRowAfter().run()}
-            className="p-1 rounded hover:bg-neutral-700 text-neutral-300 text-xs flex items-center gap-0.5"
-            title="Add Row"
-          >
-            <Rows className="w-3 h-3 text-indigo-400" /> +
-          </button>
-          <button
-            type="button"
-            onClick={() => editor.chain().focus().deleteRow().run()}
-            className="p-1 rounded hover:bg-neutral-700 text-neutral-300 text-xs flex items-center gap-0.5"
-            title="Delete Row"
-          >
-            <Rows className="w-3 h-3 text-red-400" /> -
-          </button>
-        </div>
-      )}
+      {/* Table Controls */}
+      <TableControls editor={editor} />
 
       {/* Image picker */}
       {onPickImage && (

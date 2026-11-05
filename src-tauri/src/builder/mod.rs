@@ -15,5 +15,5 @@ pub use models_loader::{
 };
 pub use pagination::{group_by_tag, paginate_chunks};
 pub use pipeline::build_site_pipeline;
-pub use post::{derive_image_variant_paths, render_markdown_to_html, BuiltPost};
+pub use post::{derive_image_variant_paths, render_markdown_to_html, BuiltPost, ExtractedFrontmatter};
 pub use render::maybe_inject_live_reload;

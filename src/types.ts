@@ -180,11 +180,3 @@ export interface PublishResult {
   message: string;
   url?: string | null;
 }
-
-export interface AppSettingsView {
-  llm_endpoint: string;
-  llm_model: string;
-  has_llm_key: boolean;
-  has_github_token: boolean;
-  storage_notice: string;
-}

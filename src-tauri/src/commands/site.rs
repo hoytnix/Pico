@@ -13,7 +13,7 @@ use crate::publish::publish_to_github_pages;
 use crate::starters::{
     copy_starter_pack, extract_embedded_starter, resolve_starters_dir, EMBEDDED_STARTERS,
 };
-use crate::storage::{load_persisted_settings, record_recent_site};
+use crate::storage::{load_persisted_llm_settings, record_recent_site};
 use super::require_current_site;
 
 /// Core implementation of `open_site` (usable both from Tauri command and tests).
@@ -231,7 +231,7 @@ pub fn create_site(
 
 #[tauri::command]
 pub fn get_recent_sites() -> Result<Vec<RecentSite>, String> {
-    let recent = load_persisted_settings().recent_sites;
+    let recent = load_persisted_llm_settings().recent_sites;
     log::debug!(target: "pico::site", "get_recent_sites: returned {} sites", recent.len());
     Ok(recent)
 }
@@ -321,8 +321,8 @@ pub fn export_site(dest_path: String, state: State<'_, AppState>) -> Result<(), 
 pub async fn publish_github_pages(state: State<'_, AppState>) -> Result<PublishResult, String> {
     let site_root = require_current_site(&state)?;
     log::info!(target: "pico::publish", "publish_github_pages requested for {:?}", site_root);
-    let settings = load_persisted_settings();
-    let res = publish_to_github_pages(&site_root, &settings).await;
+    let settings = load_persisted_llm_settings();
+    let res = publish_to_github_pages(&site_root, &settings.github_token).await;
     log::info!(target: "pico::publish", "publish_github_pages result: success={}, message='{}', url={:?}", res.success, res.message, res.url);
     Ok(res)
 }
