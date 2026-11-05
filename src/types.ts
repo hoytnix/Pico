@@ -78,7 +78,7 @@ export interface BuildResult {
 }
 
 export interface VibeTarget {
-  kind: "content" | "template" | "theme";
+  kind: "content" | "template" | "theme" | "model";
   path: string;
 }
 

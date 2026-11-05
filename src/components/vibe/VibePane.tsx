@@ -38,6 +38,7 @@ interface VibePaneProps {
   onPostUpdatedFromVibe?: (path: string, newMarkdown: string) => void;
   onTemplateUpdatedFromVibe?: (path: string, newContent: string) => void;
   onThemeUpdatedFromVibe?: (newContent: string) => void;
+  onModelUpdatedFromVibe?: (path: string) => void;
   onOpenSettings?: () => void;
 }
 
@@ -48,6 +49,7 @@ export function VibePane({
   onPostUpdatedFromVibe,
   onTemplateUpdatedFromVibe,
   onThemeUpdatedFromVibe,
+  onModelUpdatedFromVibe,
   onOpenSettings,
 }: VibePaneProps) {
   const [messages, setMessages] = useState<Message[]>([
@@ -55,7 +57,7 @@ export function VibePane({
       id: 'welcome',
       role: 'assistant',
       content:
-        'Hello! I am Vibe, your AI web designer and content editor. You can ask me to write or edit blog posts, modify MiniJinja templates, or adjust theme colors. Any changes I suggest will be shown as a diff for you to review and Accept or Reject.',
+        'Hello! I am Vibe, your AI web designer and content editor. You can ask me to write or edit blog posts, modify MiniJinja templates, update collection models, or adjust theme colors. Any changes I suggest will be shown as a diff for you to review and Accept or Reject.',
     },
   ]);
   const [inputPrompt, setInputPrompt] = useState('');
@@ -265,6 +267,11 @@ export function VibePane({
         await picoApi.saveTheme(proposal.proposed);
         if (onThemeUpdatedFromVibe) {
           onThemeUpdatedFromVibe(proposal.proposed);
+        }
+      } else if (proposal.targetType === 'model') {
+        await picoApi.saveModelYaml(proposal.path, proposal.proposed);
+        if (onModelUpdatedFromVibe) {
+          onModelUpdatedFromVibe(proposal.path);
         }
       }
 

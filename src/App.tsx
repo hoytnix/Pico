@@ -84,6 +84,17 @@ export function App() {
     }
   };
 
+  const handleModelUpdatedFromVibe = async () => {
+    if (currentSite) {
+      try {
+        const updated = await picoApi.openSite(currentSite.path);
+        setCurrentSite(updated);
+      } catch (err) {
+        console.warn('Failed to refresh site after model update:', err);
+      }
+    }
+  };
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-neutral-950 text-neutral-100 font-sans select-none">
       {/* Header: shrink-0, app title / Switch Site only, NO tab buttons */}
@@ -160,6 +171,7 @@ export function App() {
             llmSettings={llmSettings}
             activePostPath={activePostPath}
             onPostUpdatedFromVibe={handlePostUpdatedFromVibe}
+            onModelUpdatedFromVibe={handleModelUpdatedFromVibe}
             onOpenSettings={() => setIsSettingsOpen(true)}
           />
         </div>

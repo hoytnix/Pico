@@ -145,6 +145,9 @@ export const picoApi = {
   saveModel(model: ModelDef): Promise<void> {
     return apiInvoke<void>("save_model", { model });
   },
+  saveModelYaml(path: string, yamlContent: string): Promise<void> {
+    return apiInvoke<void>("save_model_yaml", { path, yamlContent });
+  },
   deleteModel(name: string): Promise<void> {
     return apiInvoke<void>("delete_model", { name });
   },

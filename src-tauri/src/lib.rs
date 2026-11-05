@@ -1012,6 +1012,26 @@ fn delete_model(name: String, state: State<'_, AppState>) -> Result<(), String> 
 }
 
 #[tauri::command]
+fn save_model_yaml(path: String, yaml_content: String, state: State<'_, AppState>) -> Result<(), String> {
+    let site_root = require_current_site(&state)?;
+    log::info!(target: "pico::models", "save_model_yaml: path='{}', length={} bytes", path, yaml_content.len());
+    let model: ModelDef = serde_yaml::from_str(&yaml_content)
+        .map_err(|e| format!("Invalid YAML for model: {}", e))?;
+    if model.name.trim().is_empty() {
+        return Err("Model 'name' cannot be empty.".to_string());
+    }
+    let slug_name = slugify(&model.name);
+    let models_dir = site_root.join("models");
+    fs::create_dir_all(&models_dir).map_err(|e| e.to_string())?;
+    let file_path = models_dir.join(format!("{}.yaml", slug_name));
+    fs::write(&file_path, &yaml_content)
+        .map_err(|e| format!("Could not write model file: {}", e))?;
+    let content_dir = site_root.join("content").join(&slug_name);
+    let _ = fs::create_dir_all(content_dir);
+    Ok(())
+}
+
+#[tauri::command]
 fn list_templates(state: State<'_, AppState>) -> Result<Vec<String>, String> {
     let site_root = require_current_site(&state)?;
     log::debug!(target: "pico::templates", "list_templates in {:?}", site_root);
@@ -1599,6 +1619,7 @@ pub fn run() {
             check_image_size,
             list_models,
             save_model,
+            save_model_yaml,
             delete_model,
             list_templates,
             read_template,
@@ -2269,5 +2290,37 @@ Body text.
             .validation_error
             .unwrap()
             .contains("post.nonexistent_var"));
+
+        // 9. Simulate Vibe model editing diff + validation
+        let model_target = VibeTarget {
+            kind: "model".to_string(),
+            path: "models/blog.yaml".to_string(),
+        };
+        let original_model_yaml = std::fs::read_to_string(site_dir.join("models").join("blog.yaml")).unwrap();
+        let valid_model_proposal = "name: blog\nlabel: Blog Articles\ntemplate: blog.jinja\nlist_template: blog-list.jinja\nfields:\n  - name: title\n    label: Title\n    type: string\n    required: true\n  - name: date\n    label: Date\n    type: date\n    required: true\n  - name: rating\n    label: Rating\n    type: string\n    required: false\n";
+        let model_vibe_ok = evaluate_vibe_proposal(
+            &site_dir,
+            &model_target,
+            &original_model_yaml,
+            valid_model_proposal,
+        )
+        .unwrap();
+        assert!(model_vibe_ok.validation_error.is_none());
+        assert!(model_vibe_ok.diff.contains("+    label: Rating"));
+
+        // Invalid model proposal (invalid YAML / invalid field type)
+        let invalid_model_proposal = "name: blog\nlabel: Blog\ntemplate: blog.jinja\nlist_template: blog-list.jinja\nfields:\n  - name: bad_field\n    label: Bad\n    type: unsupported_type_xyz\n";
+        let model_vibe_bad = evaluate_vibe_proposal(
+            &site_dir,
+            &model_target,
+            &original_model_yaml,
+            invalid_model_proposal,
+        )
+        .unwrap();
+        assert!(model_vibe_bad.validation_error.is_some());
+        assert!(model_vibe_bad
+            .validation_error
+            .unwrap()
+            .contains("unsupported type 'unsupported_type_xyz'"));
     }
 }

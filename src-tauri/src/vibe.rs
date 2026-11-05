@@ -77,6 +77,32 @@ STRICT GUARDRAILS:\n\
 2. Never output HTML or Jinja tags.\n\
 3. Return ONLY the complete updated `assets/theme.css` file without surrounding markdown code fences.".to_string())
         }
+        "model" => {
+            let mut existing_models = Vec::new();
+            for m in &models {
+                let fnames: Vec<&str> = m.fields.iter().map(|f| f.name.as_str()).collect();
+                existing_models.push(format!("- Model '{}' (collection '{}'): fields: [{}]", m.label, m.name, fnames.join(", ")));
+            }
+            Ok(format!(
+                "You are Pico Vibe Assistant editing collection models in `models/*.yaml`.\n\
+STRICT GUARDRAILS:\n\
+1. Models must be valid YAML with top-level fields:\n\
+   - `name`: string slug (e.g. blog, projects, team)\n\
+   - `label`: human-readable label (e.g. Blog, Projects, Team Members)\n\
+   - `template`: single item template (e.g. <name>.jinja)\n\
+   - `list_template`: list template (e.g. <name>-list.jinja)\n\
+   - `fields`: list of field definitions\n\
+2. Each field in `fields` must have:\n\
+   - `name`: field identifier string (must include `title` and `date`)\n\
+   - `label`: display label\n\
+   - `type`: one of 'string', 'date', 'tags', 'image', 'bool'\n\
+   - `required`: boolean (true/false)\n\
+   - optional `default`\n\
+3. Existing models in site:\n{}\n\
+4. Return ONLY the complete YAML content for the model without surrounding markdown code fences.",
+                if existing_models.is_empty() { "   (none)".to_string() } else { existing_models.join("\n") }
+            ))
+        }
         other => Err(format!("Unsupported Vibe target kind: '{}'", other)),
     }
 }
@@ -142,6 +168,62 @@ pub fn evaluate_vibe_proposal(
                 sources: None,
             })
         }
+        "model" => {
+            let norm = target.path.replace('\\', "/");
+            let rel = norm
+                .trim_start_matches('.')
+                .trim_start_matches('/')
+                .trim_start_matches("models/")
+                .trim_start_matches('/');
+            let yaml_name = if rel.ends_with(".yaml") || rel.ends_with(".yml") {
+                rel.to_string()
+            } else {
+                format!("{}.yaml", rel)
+            };
+            let path_label = format!("models/{}", yaml_name);
+
+            let parsed: Result<crate::models::ModelDef, serde_yaml::Error> = serde_yaml::from_str(&cleaned);
+            let validation_error = match parsed {
+                Ok(model) => {
+                    let mut errs = Vec::new();
+                    if model.name.trim().is_empty() {
+                        errs.push("Model 'name' cannot be empty.".to_string());
+                    }
+                    if model.label.trim().is_empty() {
+                        errs.push("Model 'label' cannot be empty.".to_string());
+                    }
+                    let valid_types = [
+                        "string", "date", "tags", "image", "bool",
+                        "text", "markdown", "number", "boolean", "select",
+                    ];
+                    for field in &model.fields {
+                        if field.name.trim().is_empty() {
+                            errs.push("Field 'name' cannot be empty.".to_string());
+                        }
+                        if !valid_types.contains(&field.field_type.as_str()) {
+                            errs.push(format!(
+                                "Field '{}' has unsupported type '{}'. Valid types: string, date, tags, image, bool.",
+                                field.name, field.field_type
+                            ));
+                        }
+                    }
+                    if errs.is_empty() {
+                        None
+                    } else {
+                        Some(errs.join(" "))
+                    }
+                }
+                Err(e) => Some(format!("Invalid YAML for model: {}", e)),
+            };
+
+            let diff = compute_unified_diff(&path_label, original_content, &cleaned);
+            Ok(VibeResult {
+                diff,
+                proposed: cleaned,
+                validation_error,
+                sources: None,
+            })
+        }
         other => Err(format!("Unknown Vibe target kind '{}'", other)),
     }
 }
@@ -184,6 +266,26 @@ pub fn read_vibe_target_content(site_root: &Path, target: &VibeTarget) -> Result
             let full = site_root.join("assets").join("theme.css");
             fs::read_to_string(&full)
                 .map_err(|e| format!("Could not read assets/theme.css: {}", e))
+        }
+        "model" => {
+            let norm = target.path.replace('\\', "/");
+            let rel = norm
+                .trim_start_matches('.')
+                .trim_start_matches('/')
+                .trim_start_matches("models/")
+                .trim_start_matches('/');
+            let yaml_name = if rel.ends_with(".yaml") || rel.ends_with(".yml") {
+                rel.to_string()
+            } else {
+                format!("{}.yaml", rel)
+            };
+            let full = site_root.join("models").join(&yaml_name);
+            if full.exists() {
+                fs::read_to_string(&full)
+                    .map_err(|e| format!("Could not read models/{}: {}", yaml_name, e))
+            } else {
+                Ok(String::new())
+            }
         }
         other => Err(format!("Unsupported Vibe target kind: {}", other)),
     }

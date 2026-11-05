@@ -71,7 +71,7 @@ export function DiffCard({
         <div className="px-3 py-2 text-xs bg-red-950/60 text-red-300 border-b border-red-800 flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
           <div>
-            <strong>Template Guardrail Violation:</strong>
+            <strong>Guardrail Violation:</strong>
             <p className="mt-0.5">{validationError}</p>
           </div>
         </div>

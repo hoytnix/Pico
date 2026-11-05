@@ -143,7 +143,7 @@ pub struct BuildResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VibeTarget {
-    pub kind: String, // "content" | "template" | "theme"
+    pub kind: String, // "content" | "template" | "theme" | "model"
     pub path: String,
 }
 

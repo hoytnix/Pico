@@ -1,10 +1,30 @@
 # Active Context: Pico
 
 ## Current Focus
-Bumped version from `0.1.0` to `0.1.1` across `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`, tagged release `v0.1.1`, and pushed to origin.
+Implemented full Vibe support for collection models (`models/*.yaml`), enabling Vibe to inspect existing models via `listModels` and `readModelFile`, propose schema edits via `proposeEdit` with `targetType: 'model'`, validate model YAML schema and field types with guardrails, display unified diffs, and save validated models upon user acceptance.
 
 ## Recent State Changes
-1. **Version Bump to `0.1.1` & Release Tag `v0.1.1`:**
+1. **Vibe Collection Model Support (`models/*.yaml`):**
+   - **Backend (`src-tauri/src/vibe.rs` & `models.rs`):**
+     - Updated `VibeTarget` kind to include `"model"`.
+     - Added `"model"` system prompt instructions in `build_vibe_system_prompt`, explaining model schema structure, valid field types (`string`, `date`, `tags`, `image`, `bool`), and existing collection models in the site.
+     - Implemented model file reading in `read_vibe_target_content` for `models/<name>.yaml` (handling non-existent models gracefully as empty for new proposals).
+     - Added model proposal validation in `evaluate_vibe_proposal`: validates proposed YAML as a valid `ModelDef`, checks for required names/labels, validates field types against allowed types, and computes unified diffs.
+     - Added unit tests in `src-tauri/src/lib.rs` verifying valid model proposals generate unified diffs without validation errors, and invalid YAML / unsupported field types are flagged with descriptive guardrail violations.
+   - **Tauri IPC Command & API (`src-tauri/src/lib.rs` & `src/api.ts`):**
+     - Added `save_model_yaml` Tauri command to validate and persist model YAML to `models/<slug>.yaml`, creating the collection content directory `content/<slug>` automatically. Registered in `tauri::generate_handler!`.
+     - Added `saveModelYaml` to `picoApi` in [api.ts](file:///home/oloty/Dev/Pico/src/api.ts).
+   - **Vibe Agent & Tools (`src/lib/vibeAgent.ts`):**
+     - Added `readModelFile` tool to read YAML schema of any model in `models/`.
+     - Added `listModels` tool so Vibe can discover all models, their fields, and templates in one call.
+     - Updated `proposeEdit` schema to accept `targetType: 'model'`, with path normalization for `models/<name>.yaml`.
+     - Updated agent instructions guiding Vibe on how to inspect and propose modifications or additions to collection models.
+   - **UI & Diff Approval (`src/components/vibe/VibePane.tsx`, `DiffCard.tsx`, `src/App.tsx`):**
+     - Updated `handleAcceptProposal` in `VibePane.tsx` to handle `proposal.targetType === 'model'` by invoking `picoApi.saveModelYaml`.
+     - Added `onModelUpdatedFromVibe` callback wired to `App.tsx` to reload `currentSite` via `openSite`, keeping models synchronized in the Models sub-navigation, post editor, and content lists.
+     - Updated `DiffCard.tsx` guardrail error header to generic "Guardrail Violation" for template and model guardrails.
+     - Updated Vibe welcome message in `VibePane.tsx` to announce model editing capabilities.
+2. **Version Bump to `0.1.1` & Release Tag `v0.1.1`:**
    - Updated package version to `0.1.1` in [package.json](file:///home/oloty/Dev/Pico/package.json), [Cargo.toml](file:///home/oloty/Dev/Pico/src-tauri/Cargo.toml), and [tauri.conf.json](file:///home/oloty/Dev/Pico/src-tauri/tauri.conf.json).
    - Rebuilt frontend and backend metadata.
    - Created git tag `v0.1.1` and pushed commits and tag to `origin/main` to trigger CI release workflow.

@@ -157,7 +157,7 @@ export function createVibeModel(config: VibeAgentConfig) {
 }
 
 export interface ProposeEditResult {
-  targetType: 'content' | 'template' | 'theme';
+  targetType: 'content' | 'template' | 'theme' | 'model';
   path: string;
   diff: string;
   proposed: string;
@@ -221,19 +221,68 @@ export function createVibeAgent(
       },
     }),
 
+    readModelFile: tool({
+      description: 'Read the YAML schema definition of a collection model in the site.',
+      inputSchema: z.object({
+        path: z.string().describe('Relative path or name of the model YAML file, e.g. models/blog.yaml or blog.yaml'),
+      }),
+      execute: async ({ path }) => {
+        try {
+          let cleanPath = path.trim().replace(/\\/g, '/').replace(/^\.?\//, '');
+          if (!cleanPath.startsWith('models/')) {
+            cleanPath = `models/${cleanPath}`;
+          }
+          if (!cleanPath.endsWith('.yaml') && !cleanPath.endsWith('.yml')) {
+            cleanPath = `${cleanPath}.yaml`;
+          }
+          const ctx = await picoApi.getVibeContext({ kind: 'model', path: cleanPath });
+          return { path: cleanPath, content: ctx.original_content };
+        } catch (err: any) {
+          return { error: `Failed to read model file ${path}: ${err.message || String(err)}` };
+        }
+      },
+    }),
+
+    listModels: tool({
+      description: 'List all existing collection models in the site with their fields and templates.',
+      inputSchema: z.object({}),
+      execute: async () => {
+        try {
+          const models = await picoApi.listModels();
+          return {
+            models: models.map((m) => ({
+              name: m.name,
+              label: m.label,
+              template: m.template,
+              list_template: m.list_template,
+              path: `models/${m.name}.yaml`,
+              fields: m.fields.map((f) => ({
+                name: f.name,
+                label: f.label,
+                type: f.type,
+                required: f.required,
+              })),
+            })),
+          };
+        } catch (err: any) {
+          return { error: `Failed to list models: ${err.message || String(err)}` };
+        }
+      },
+    }),
+
     proposeEdit: tool({
       description:
-        'Propose an edit to a content file (markdown body), template file (Jinja), or theme CSS. The edit will be presented to the user as a diff for review. After calling proposeEdit, explain what changes were made in your response.',
+        'Propose an edit to a content file (markdown body), template file (Jinja), theme CSS, or collection model YAML. The edit will be presented to the user as a diff for review. After calling proposeEdit, explain what changes were made in your response.',
       inputSchema: z.object({
         targetType: z
-          .enum(['content', 'template', 'theme'])
+          .enum(['content', 'template', 'theme', 'model'])
           .describe('The kind of target file being edited'),
         path: z
           .string()
-          .describe('The file path, e.g. content/blog/first-post.md, templates/index.jinja, or assets/theme.css'),
+          .describe('The file path, e.g. content/blog/first-post.md, templates/index.jinja, assets/theme.css, or models/blog.yaml'),
         proposedContent: z
           .string()
-          .describe('The complete updated content (full markdown body for content, full template code for template, full css for theme)'),
+          .describe('The complete updated content (full markdown body for content, full template code for template, full css for theme, full yaml for model)'),
         explanation: z.string().optional().describe('Short explanation of what was changed and why'),
       }),
       execute: async ({ targetType, path, proposedContent, explanation }) => {
@@ -241,6 +290,12 @@ export function createVibeAgent(
           let cleanPath = path.trim().replace(/\\/g, '/').replace(/^\.?\//, '');
           if (targetType === 'theme') {
             cleanPath = 'assets/theme.css';
+          } else if (targetType === 'model') {
+            let modelRel = cleanPath.replace(/^models\//, '');
+            if (!modelRel.endsWith('.yaml') && !modelRel.endsWith('.yml')) {
+              modelRel = `${modelRel}.yaml`;
+            }
+            cleanPath = `models/${modelRel}`;
           }
           const target = { kind: targetType, path: cleanPath };
           const evalResult = await picoApi.evaluateVibeProposal(target, proposedContent);
@@ -279,11 +334,14 @@ export function createVibeAgent(
   }
 
   const instructions = `You are Vibe, an expert AI web designer and content editor in Pico (a local-first desktop static site generator).
-You help users refine markdown content, customize MiniJinja templates, and tweak theme CSS variables.
+You help users refine markdown content, customize MiniJinja templates, edit collection models (YAML schema definitions), and tweak theme CSS variables.
 Safety rules:
 - NEVER output raw shell commands or ask the user to use a terminal. Pico is completely terminal-free.
-- To make a change, inspect the file first using readContentFile, readTemplateFile, or readThemeCss, then call proposeEdit with the complete proposed new text.
+- To inspect files or schema, use readContentFile, readTemplateFile, readThemeCss, readModelFile, or listModels.
+- To make a change, inspect the file first using the appropriate read tool, then call proposeEdit with the complete proposed new text.
 - If the user asks to change theme colors, fonts, or styling of their app or site, inspect assets/theme.css using readThemeCss and propose the changes using proposeEdit.
+- If the user asks to view, create, or modify content models / collections (e.g. adding fields to blog, creating a portfolio or team model, modifying model schema), inspect the models using readModelFile or listModels, then propose the updated YAML definition via proposeEdit with targetType 'model' and path 'models/<name>.yaml'.
+- Collection models live in models/<collection>.yaml. Valid field types in Pico are: 'string', 'date', 'tags', 'image', 'bool'. Models must include 'title' and 'date' fields.
 - Do NOT fabricate file paths or hallucinate models.
 - When editing MiniJinja templates, adhere to model variables and never invent unknown variables or top-level macro HTML.
 - When proposing an edit, the proposal will be presented to the user as a unified diff with Accept / Reject buttons. Explain your reasoning clearly.`;
