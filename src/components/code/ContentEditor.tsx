@@ -1,18 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  Plus,
-  Trash2,
-  FileText,
-  Calendar,
-  Tag,
-  Image as ImageIcon,
-  Check,
-  Clock,
-  AlertTriangle,
-} from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { picoApi, pickImageFileDialog, confirmAction } from '../../api';
 import { slugify, formatPostPath } from '../../lib/slug';
 import { TiptapEditor } from '../editor/TiptapEditor';
+import { PostListSidebar } from './content/PostListSidebar';
+import { FrontmatterForm } from './content/FrontmatterForm';
 import type { ModelDef, PostDocument, PostMeta, SiteInfo } from '../../types';
 
 interface ContentEditorProps {
@@ -38,7 +30,6 @@ export function ContentEditor({
   const [filterQuery, setFilterQuery] = useState('');
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isInitialLoadRef = useRef(true);
 
   // Load collections
   useEffect(() => {
@@ -148,6 +139,7 @@ export function ContentEditor({
   const handleCreatePost = async () => {
     const title = window.prompt('Enter post title:');
     if (!title || !title.trim()) return;
+
     const slug = slugify(title) || 'new-post';
     const dateStr = new Date().toISOString().split('T')[0];
     const path = formatPostPath(activeCollection, slug);
@@ -194,7 +186,6 @@ export function ContentEditor({
       const slug = (activeDocument?.frontmatter?.slug as string) || 'post';
       const relativeAssetPath = await picoApi.saveImage(filePath, slug, activeCollection);
 
-      // Insert markdown image into editor
       if (tiptapEditorRef?.current) {
         tiptapEditorRef.current.commands.setImage({
           src: relativeAssetPath,
@@ -206,183 +197,32 @@ export function ContentEditor({
     }
   };
 
-  const currentModel = collections.find((c) => c.name === activeCollection);
-  const filteredPosts = posts.filter((p) =>
-    (p.title || p.slug).toLowerCase().includes(filterQuery.toLowerCase())
-  );
-
   return (
     <div className="content-editor flex h-full bg-neutral-950 text-neutral-100 overflow-hidden">
       {/* Left Sidebar: Collection Tabs & Posts list */}
-      <div className="w-64 border-r border-neutral-800 bg-neutral-900/60 flex flex-col shrink-0">
-        {/* Collection Selector Tabs */}
-        {collections.length > 1 && (
-          <div className="flex border-b border-neutral-800 p-1.5 gap-1 bg-neutral-900">
-            {collections.map((col) => (
-              <button
-                key={col.name}
-                type="button"
-                onClick={() => {
-                  setActiveCollection(col.name);
-                  setActivePostPath(null);
-                }}
-                className={`flex-1 py-1 px-2 text-xs font-medium rounded-md truncate transition-colors cursor-pointer ${
-                  activeCollection === col.name
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800'
-                }`}
-              >
-                {col.label || col.name}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Search & New Post Button */}
-        <div className="p-2.5 border-b border-neutral-800 flex items-center gap-2">
-          <input
-            type="text"
-            value={filterQuery}
-            onChange={(e) => setFilterQuery(e.target.value)}
-            placeholder="Filter posts…"
-            className="flex-1 bg-neutral-950 border border-neutral-700 rounded-md px-2.5 py-1 text-xs text-neutral-200 outline-none focus:border-indigo-500"
-          />
-          <button
-            type="button"
-            onClick={handleCreatePost}
-            className="p-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white transition-colors cursor-pointer"
-            title="New Post"
-          >
-            <Plus className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* Posts List */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {filteredPosts.length === 0 ? (
-            <div className="text-center text-xs text-neutral-500 py-6">No posts found</div>
-          ) : (
-            filteredPosts.map((post) => (
-              <div
-                key={post.path}
-                onClick={() => setActivePostPath(post.path)}
-                className={`group flex items-start justify-between p-2.5 rounded-lg text-xs cursor-pointer transition-colors ${
-                  activePostPath === post.path
-                    ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40'
-                    : 'hover:bg-neutral-800/80 text-neutral-300'
-                }`}
-              >
-                <div className="flex-1 min-w-0 pr-2">
-                  <div className="font-medium truncate">{post.title || post.slug}</div>
-                  <div className="flex items-center gap-2 text-[10px] text-neutral-400 mt-0.5">
-                    <span>{post.date || 'No date'}</span>
-                    {post.draft && (
-                      <span className="px-1 py-0.2 rounded bg-amber-950/80 text-amber-400 border border-amber-800/60">
-                        Draft
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeletePost(post.path, post.title || post.slug);
-                  }}
-                  className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 text-neutral-500 transition-opacity"
-                  title="Delete post"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
+      <PostListSidebar
+        collections={collections}
+        activeCollection={activeCollection}
+        setActiveCollection={setActiveCollection}
+        posts={posts}
+        activePostPath={activePostPath}
+        setActivePostPath={setActivePostPath}
+        filterQuery={filterQuery}
+        setFilterQuery={setFilterQuery}
+        onCreatePost={handleCreatePost}
+        onDeletePost={handleDeletePost}
+      />
 
       {/* Main Authoring Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {activeDocument && activePostPath ? (
           <>
             {/* Post Properties Header Form */}
-            <div className="p-4 border-b border-neutral-800 bg-neutral-900/40">
-              <div className="flex items-center justify-between mb-3">
-                <input
-                  type="text"
-                  value={(activeDocument.frontmatter.title as string) || ''}
-                  onChange={(e) => handleFrontmatterChange('title', e.target.value)}
-                  placeholder="Post Title"
-                  className="text-lg font-bold text-neutral-100 bg-transparent outline-none flex-1 mr-4 focus:border-b focus:border-indigo-500"
-                />
-                <div className="flex items-center gap-3 text-xs">
-                  {saveStatus === 'saving' && (
-                    <span className="text-amber-400 flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 animate-spin" /> Saving…
-                    </span>
-                  )}
-                  {saveStatus === 'saved' && (
-                    <span className="text-emerald-400 flex items-center gap-1">
-                      <Check className="w-3.5 h-3.5" /> Saved
-                    </span>
-                  )}
-                  {saveStatus === 'unsaved' && (
-                    <span className="text-amber-400 flex items-center gap-1">
-                      Unsaved changes
-                    </span>
-                  )}
-                  <label className="flex items-center gap-1.5 cursor-pointer text-neutral-300">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(activeDocument.frontmatter.draft)}
-                      onChange={(e) => handleFrontmatterChange('draft', e.target.checked)}
-                      className="rounded bg-neutral-800 border-neutral-700 text-indigo-600 focus:ring-0"
-                    />
-                    <span>Draft</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Secondary Properties Row */}
-              <div className="grid grid-cols-3 gap-3 text-xs">
-                <div>
-                  <label className="block text-[11px] text-neutral-400 mb-1">Date</label>
-                  <input
-                    type="date"
-                    value={String(activeDocument.frontmatter.date || '')}
-                    onChange={(e) => handleFrontmatterChange('date', e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-700 rounded px-2.5 py-1 text-neutral-200 outline-none focus:border-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] text-neutral-400 mb-1">Slug</label>
-                  <input
-                    type="text"
-                    value={(activeDocument.frontmatter.slug as string) || ''}
-                    onChange={(e) => handleFrontmatterChange('slug', e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-700 rounded px-2.5 py-1 text-neutral-200 font-mono outline-none focus:border-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] text-neutral-400 mb-1">Tags (comma-separated)</label>
-                  <input
-                    type="text"
-                    value={
-                      Array.isArray(activeDocument.frontmatter.tags)
-                        ? activeDocument.frontmatter.tags.join(', ')
-                        : String(activeDocument.frontmatter.tags || '')
-                    }
-                    onChange={(e) => {
-                      const tagsArray = e.target.value
-                        .split(',')
-                        .map((t) => t.trim())
-                        .filter(Boolean);
-                      handleFrontmatterChange('tags', tagsArray);
-                    }}
-                    className="w-full bg-neutral-950 border border-neutral-700 rounded px-2.5 py-1 text-neutral-200 outline-none focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-            </div>
+            <FrontmatterForm
+              frontmatter={activeDocument.frontmatter}
+              saveStatus={saveStatus}
+              onChange={handleFrontmatterChange}
+            />
 
             {/* TipTap WYSIWYG Editor Container */}
             <div className="flex-1 p-4 overflow-hidden flex flex-col">
