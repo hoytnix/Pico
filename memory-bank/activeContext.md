@@ -1,9 +1,33 @@
 # Active Context: Pico
 
 ## Current Focus
-Configured GitHub Actions release workflow (`.github/workflows/release.yml`) so that releases are published exclusively when a new git tag occurs. Branch pushes, pull requests, and manual triggers continue to run compilation, tests, and standalone executable uploads without publishing releases.
+Diagnosed and fixed the "Load failed" error on Gemini Native (`gemini-native`).
 
 ## Recent State Changes
+1. **Added Git Commit Protocol on Memory Bank Updates to GEMINI.md:**
+   - Updated [GEMINI.md](file:///home/oloty/Dev/Pico/GEMINI.md) operational rules and guardrails to mandate committing to Git every time `/memory-bank/` is updated.
+2. **CSP `connect-src` Fix for Gemini Native & Third-Party LLMs:**
+   - Identified root cause of WebKit generic `TypeError: Load failed` when calling Gemini Native from frontend: [tauri.conf.json](file:///home/oloty/Dev/Pico/src-tauri/tauri.conf.json) CSP `connect-src` only permitted `https://api.openai.com` and `https://api.github.com`. WebKit/WebKit2GTK silently blocked requests to `https://generativelanguage.googleapis.com` as CSP violations.
+   - Updated `connect-src` in `tauri.conf.json` to include all supported LLM endpoints: `https://generativelanguage.googleapis.com`, `https://api.meta.ai`, `https://openrouter.ai`, alongside `https://api.openai.com` and `https://api.github.com`.
+   - Updated [vibeAgent.ts](file:///home/oloty/Dev/Pico/src/lib/vibeAgent.ts) `formatLlmError` to recognize WebKit's generic `Load failed` string and format it as a user-friendly connectivity error.
+2. **Preset Model Selector Updates:**
+   - Removed deprecated `gemini-3-flash-preview` and `gemini-2.5-flash` presets.
+   - Added new presets for Gemini providers (`gemini-native` and `gemini-openai`): `gemini-3.8-flash`, `gemini-3.5-flash`, and `gemini-3.5-flash-lite`.
+   - Updated backend provider registry in [llm.rs](file:///home/oloty/Dev/Pico/src-tauri/src/llm.rs) and verified thinking mapping & unit tests.
+2. **Settings Relocated to Top Navbar:**
+   - Removed Settings sub-tab from [CodePane.tsx](file:///home/oloty/Dev/Pico/src/components/code/CodePane.tsx) (sub-navigation is now: Content, Models, Templates, Theme).
+   - Added a dedicated gear icon button (`<Settings className="w-4 h-4" />`) to the top navbar in [App.tsx](file:///home/oloty/Dev/Pico/src/App.tsx) immediately to the right of the "Switch Site" button with no text label.
+   - Wired the gear button to toggle the Settings modal dialog.
+   - Updated Vibe pane settings trigger callback to directly open the modal dialog.
+2. **Dropdown Menu White-on-White Contrast Fix:**
+   - Identified that HTML `<select>` dropdown popups and `<option>` elements on Linux/WebKit defaulted to white backgrounds with white text when inheriting app styles.
+   - Enforced `color-scheme: dark;` on `html`, `body`, `#app`, and `select` in `src/styles.css`.
+   - Explicitly styled `select option` with dark background (`#0a0a0a`) and light text (`#f5f5f5`).
+   - Added `[&>option]:bg-neutral-950 [&>option]:text-neutral-100` utility classes to dropdowns across [SettingsModal.tsx](file:///home/oloty/Dev/Pico/src/components/settings/SettingsModal.tsx) and [ModelsEditor.tsx](file:///home/oloty/Dev/Pico/src/components/code/ModelsEditor.tsx).
+2. **Pushed Tag `v0.1.0` to Origin:**
+   - Created annotated/lightweight git tag `v0.1.0` on `main` (`5c464c3`).
+   - Pushed tag `v0.1.0` to `github.com:hoytnix/Pico.git`.
+   - Triggers `tauri-apps/tauri-action@v0` to build and publish release bundles under `v0.1.0`.
 1. **Tag-Gated Publishing in CI Release Workflow:**
    - Modified `.github/workflows/release.yml` so that `tags: ["*"]` triggers for any release tag.
    - Replaced dynamic tag step with direct step gate `if: startsWith(github.ref, 'refs/tags/')` on `tauri-apps/tauri-action@v0`.

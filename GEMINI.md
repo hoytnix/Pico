@@ -40,12 +40,14 @@ You operate strictly under two distinct modes based on the task type:
 * **Step 1:** Cross-reference requested code changes against `techContext.md` constraints and `systemPatterns.md` standards.
 * **Step 2:** Execute the task or generate the requested code.
 * **Step 3:** MEMORY BANK AUTO-UPDATE RULE: After implementing significant changes or discovering new architectural patterns, update `activeContext.md` and `progress.md` to keep the Memory Bank synchronized for the next session.
-* **Step 4:** TERMINATION NO-REDUNDANCY RULE: Do NOT perform additional linting, testing, or build verification checks AFTER updating the Memory Bank files. The Memory Bank sync represents the final step of the execution lifecycle; conclude the response immediately after syncing documentation.
+* **Step 4:** GIT COMMIT RULE: Always commit to Git after each time you update `/memory-bank/` (e.g. `git add memory-bank/ && git commit -m "docs: update memory bank"` or staging relevant changes along with the memory bank update).
+* **Step 5:** TERMINATION NO-REDUNDANCY RULE: Do NOT perform additional linting, testing, or build verification checks AFTER updating the Memory Bank files and committing. Conclude the response immediately after committing the documentation changes.
 
 ---
 
 ### STRICT FAILURE CONDITIONS & GUARDRAILS
 * NEVER skip reading the Memory Bank, even if a user prompt seems self-contained or brief.
 * NEVER assume past context without verifying it against `activeContext.md`.
+* NEVER omit committing to Git after updating `/memory-bank/`.
 * NEVER run redundant linting or build scripts after updating `.md` documentation files.
 * If `/memory-bank/` is missing or incomplete in the workspace, your IMMEDIATE first action must be to create or initialize the missing core files before proceeding with the user's task.

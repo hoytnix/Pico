@@ -64,17 +64,17 @@ Features present in CaffeineMD not needed for Pico v1 have been intentionally de
 
 | Provider ID | Label in UI | AI SDK v7 Provider | Default Models | Key Label & Dashboard Link |
 |---|---|---|---|---|
-| `gemini-native` | Gemini (Native) | `@ai-sdk/google` (native Gemini) | `gemini-4-argon`, `gemini-3-flash-preview`, `gemini-2.5-flash` | Gemini API key — [Google AI Studio](https://aistudio.google.com/app/apikey) |
+| `gemini-native` | Gemini (Native) | `@ai-sdk/google` (native Gemini) | `gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.5-flash`, `gemini-3.5-flash-lite` | Gemini API key — [Google AI Studio](https://aistudio.google.com/app/apikey) |
 | `openai` | OpenAI | AI SDK OpenAI provider | `gpt-4o-mini` | OpenAI API key — [OpenAI Platform](https://platform.openai.com/api-keys) |
 | `openrouter` | OpenRouter | AI SDK OpenAI-compatible (`https://openrouter.ai/api/v1`) | Custom model field required (e.g. `anthropic/claude-3.5-sonnet`) | OpenRouter API key — [OpenRouter Keys](https://openrouter.ai/keys) (Sends `HTTP-Referer` and `X-Title: Pico` headers) |
 | `meta` | Muse Spark | AI SDK OpenAI-compatible (`https://api.meta.ai/v1`) | `muse-spark-1.3`, `muse-spark-1.3-contributor`, `muse-wonder-1.0` | Model API key — [Meta Model API Dashboard](https://api.meta.ai/dashboard/keys) |
-| `gemini-openai` | Gemini (OpenAI mode) | AI SDK OpenAI-compatible (`https://generativelanguage.googleapis.com/v1beta/openai`) | `gemini-4-argon`, `gemini-2.5-flash` | Gemini API key — [Google AI Studio](https://aistudio.google.com/app/apikey) |
+| `gemini-openai` | Gemini (OpenAI mode) | AI SDK OpenAI-compatible (`https://generativelanguage.googleapis.com/v1beta/openai`) | `gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.5-flash`, `gemini-3.5-flash-lite` | Gemini API key — [Google AI Studio](https://aistudio.google.com/app/apikey) |
 | `custom` | Custom (OpenAI-compatible) | AI SDK OpenAI-compatible (user-entered base URL) | Custom model field required | Custom API key (Enforces `https://`, except local `http://localhost:*` or `http://127.0.0.1:*`) |
 
 ### Thinking and Grounding Rules
 
 - **Thinking Dropdown:** Low / Medium / High / Provider Default (send nothing). Default is Medium in UI.
-  - Gemini 3/4 (`gemini-4-argon`, `gemini-3-flash-preview`): maps to `thinkingLevel: "low" | "medium" | "high"`. Never sends `MINIMAL` or token budgets (both return HTTP 400 on Gemini 4).
+  - Gemini 3/4 (`gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`): maps to `thinkingLevel: "low" | "medium" | "high"`. Never sends `MINIMAL` or token budgets (both return HTTP 400 on Gemini 4).
   - Gemini 2.5: maps to token budgets `1024 | 8192 | 24576`.
   - OpenAI-compatible track: maps to `reasoning_effort: "low" | "medium" | "high"`.
   - Muse Spark: Thinking dropdown is **disabled** with the note: *"Muse Spark manages its own reasoning."*

@@ -323,7 +323,7 @@ export function ModelsEditor({ currentSite, onModelSaved }: ModelsEditorProps) {
                           <select
                             value={field.type}
                             onChange={(e) => handleUpdateField(idx, { type: e.target.value })}
-                            className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200 outline-none focus:border-indigo-500"
+                            className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200 outline-none focus:border-indigo-500 [&>option]:bg-neutral-950 [&>option]:text-neutral-100"
                           >
                             {FIELD_TYPES.map((t) => (
                               <option key={t} value={t}>

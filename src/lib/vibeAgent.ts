@@ -68,12 +68,13 @@ export function formatLlmError(err: unknown, provider: string, model: string): s
     return `Rate limited by ${provider}. Wait and retry. (${msg})`;
   }
 
-  // Network / timeout
+  // Network / timeout / webkit load failed
   if (
     lower.includes('timeout') ||
     lower.includes('timed out') ||
     lower.includes('network') ||
     lower.includes('fetch failed') ||
+    lower.includes('load failed') ||
     lower.includes('connection refused') ||
     lower.includes('econnrefused')
   ) {

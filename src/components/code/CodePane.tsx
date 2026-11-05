@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { Settings, FileText, Layers, FileCode, Palette } from 'lucide-react';
+import { FileText, Layers, FileCode, Palette } from 'lucide-react';
 import { ContentEditor } from './ContentEditor';
 import { ModelsEditor } from './ModelsEditor';
 import { TemplatesEditor } from './TemplatesEditor';
 import { ThemeEditor } from './ThemeEditor';
-import { SettingsModal } from '../settings/SettingsModal';
 import type { SiteInfo } from '../../types';
 
 interface CodePaneProps {
@@ -20,7 +19,7 @@ interface CodePaneProps {
   tiptapEditorRef?: React.MutableRefObject<any>;
 }
 
-export type CodeSubView = 'content' | 'models' | 'templates' | 'theme' | 'settings';
+export type CodeSubView = 'content' | 'models' | 'templates' | 'theme';
 
 export function CodePane({
   currentSite,
@@ -38,7 +37,7 @@ export function CodePane({
 
   return (
     <div className="code-pane flex flex-col h-full bg-neutral-950 text-neutral-100 overflow-hidden">
-      {/* Code Internal Sub-Navigation: Content / Models / Templates / Theme / Settings */}
+      {/* Code Internal Sub-Navigation: Content / Models / Templates / Theme */}
       <div className="code-header shrink-0 flex items-center justify-between px-6 py-2.5 bg-neutral-900 border-b border-neutral-800">
         <div className="flex items-center gap-1.5 bg-neutral-950 p-1 rounded-lg border border-neutral-800">
           <button
@@ -92,19 +91,6 @@ export function CodePane({
             <Palette className="w-3.5 h-3.5" />
             <span>Theme</span>
           </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveSubView('settings')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
-              activeSubView === 'settings'
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800'
-            }`}
-          >
-            <Settings className="w-3.5 h-3.5" />
-            <span>Settings</span>
-          </button>
         </div>
 
         <div className="text-[11px] font-mono text-neutral-500">
@@ -134,14 +120,6 @@ export function CodePane({
 
         <div className={`h-full w-full ${activeSubView === 'theme' ? 'block' : 'hidden'}`}>
           <ThemeEditor currentSite={currentSite} onThemeSaved={onThemeSaved} />
-        </div>
-
-        <div className={`h-full w-full ${activeSubView === 'settings' ? 'block' : 'hidden'}`}>
-          <SettingsModal
-            isOpen={true}
-            isInline={true}
-            onSettingsSaved={onLlmSettingsChanged}
-          />
         </div>
       </div>
     </div>

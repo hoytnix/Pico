@@ -24,8 +24,9 @@ pub fn get_provider_registry() -> Vec<ProviderInfo> {
             base_url: "https://generativelanguage.googleapis.com/v1beta".to_string(),
             default_models: vec![
                 "gemini-4-argon".to_string(),
-                "gemini-3-flash-preview".to_string(),
-                "gemini-2.5-flash".to_string(),
+                "gemini-3.8-flash".to_string(),
+                "gemini-3.5-flash".to_string(),
+                "gemini-3.5-flash-lite".to_string(),
             ],
             key_label: "Gemini API key".to_string(),
             key_url: "https://aistudio.google.com/app/apikey".to_string(),
@@ -74,7 +75,9 @@ pub fn get_provider_registry() -> Vec<ProviderInfo> {
             base_url: "https://generativelanguage.googleapis.com/v1beta/openai".to_string(),
             default_models: vec![
                 "gemini-4-argon".to_string(),
-                "gemini-2.5-flash".to_string(),
+                "gemini-3.8-flash".to_string(),
+                "gemini-3.5-flash".to_string(),
+                "gemini-3.5-flash-lite".to_string(),
             ],
             key_label: "Gemini API key".to_string(),
             key_url: "https://aistudio.google.com/app/apikey".to_string(),
@@ -939,7 +942,12 @@ mod tests {
         );
         assert_eq!(
             gemini_native.default_models,
-            vec!["gemini-4-argon", "gemini-3-flash-preview", "gemini-2.5-flash"]
+            vec![
+                "gemini-4-argon",
+                "gemini-3.8-flash",
+                "gemini-3.5-flash",
+                "gemini-3.5-flash-lite"
+            ]
         );
         assert!(gemini_native.supports_thinking);
         assert!(gemini_native.supports_grounding);
@@ -975,7 +983,12 @@ mod tests {
         );
         assert_eq!(
             gemini_openai.default_models,
-            vec!["gemini-4-argon", "gemini-2.5-flash"]
+            vec![
+                "gemini-4-argon",
+                "gemini-3.8-flash",
+                "gemini-3.5-flash",
+                "gemini-3.5-flash-lite"
+            ]
         );
         assert!(gemini_openai.supports_thinking);
         assert!(!gemini_openai.supports_grounding);
@@ -989,7 +1002,7 @@ mod tests {
 
     #[test]
     fn test_thinking_mapping_table_exact_spec() {
-        // 1. Gemini Native Gemini 4 / 3 (e.g. gemini-4-argon, gemini-3-flash-preview)
+        // 1. Gemini Native Gemini 4 / 3 (e.g. gemini-4-argon, gemini-3.8-flash, gemini-3.5-flash)
         assert_eq!(
             map_thinking_setting(PROVIDER_GEMINI_NATIVE, "gemini-4-argon", "low").unwrap(),
             ThinkingMapping::GeminiLevel("LOW".to_string())
@@ -1003,8 +1016,12 @@ mod tests {
             ThinkingMapping::GeminiLevel("HIGH".to_string())
         );
         assert_eq!(
-            map_thinking_setting(PROVIDER_GEMINI_NATIVE, "gemini-3-flash-preview", "medium").unwrap(),
+            map_thinking_setting(PROVIDER_GEMINI_NATIVE, "gemini-3.8-flash", "medium").unwrap(),
             ThinkingMapping::GeminiLevel("MEDIUM".to_string())
+        );
+        assert_eq!(
+            map_thinking_setting(PROVIDER_GEMINI_NATIVE, "gemini-3.5-flash", "high").unwrap(),
+            ThinkingMapping::GeminiLevel("HIGH".to_string())
         );
         assert_eq!(
             map_thinking_setting(PROVIDER_GEMINI_NATIVE, "gemini-4-argon", "default").unwrap(),

@@ -10,7 +10,12 @@
 
 | Module / Requirement | Status | Notes |
 | --- | --- | --- |
-| CI Release Workflow Fixes | Completed | 1) Removed `version: 12` from `release.yml` for `pnpm/action-setup`. 2) Added `permissions: contents: write`. 3) Tag-gated publishing (`if: startsWith(github.ref, 'refs/tags/')`) so releases are only published when a new tag occurs. |
+| Memory Bank Git Commit Rule | Completed | Added Step 4 and strict guardrail to `GEMINI.md` to ensure memory bank updates are committed to Git immediately after modification. |
+| Gemini Native CSP Fix | Completed | Added `https://generativelanguage.googleapis.com`, `https://api.meta.ai`, and `https://openrouter.ai` to CSP `connect-src` in `tauri.conf.json` to eliminate WebKit "Load failed" fetch blocking. Also mapped `load failed` in `formatLlmError`. |
+| Preset Model Selector Update | Completed | Removed `gemini-3-flash-preview` and `gemini-2.5-flash`; replaced with `gemini-3.8-flash`, `gemini-3.5-flash`, and `gemini-3.5-flash-lite`. |
+| Top Navbar Settings Button | Completed | Removed Settings from the Code sub-navigation. Added a gear-only icon button to the top navbar to the right of "Switch Site" to open the Settings modal. |
+| Dropdown Visibility Fix | Completed | Fixed white-on-white text in select dropdowns by specifying `color-scheme: dark;`, solid dark option backgrounds, and option text colors in `styles.css` and components. |
+| CI Release Workflow Fixes | Completed | 1) Removed `version: 12` from `release.yml` for `pnpm/action-setup`. 2) Added `permissions: contents: write`. 3) Tag-gated publishing (`if: startsWith(github.ref, 'refs/tags/')`). 4) Tag `v0.1.0` created and pushed to origin to trigger release publishing. |
 | TailwindCSS v4 Setup (§2) | Completed | `tailwindcss` + `@tailwindcss/vite` via `pnpm`, Vite plugin registered, `@import "tailwindcss";` in `src/styles.css`. No v3 config files. |
 | Single Visible Pane Shell (§3) | Completed | Root shell `flex h-screen flex-col overflow-hidden`. Exactly one pane visible at a time via `block` / `hidden`. Zero pane stacking. |
 | State Preservation (§3) | Completed | Components remain mounted with `hidden`; chat drafts, pending diffs, editor content, and preview scroll survive all tab switches. |

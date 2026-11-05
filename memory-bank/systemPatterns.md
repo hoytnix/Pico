@@ -76,5 +76,6 @@ flowchart TD
 - On success, `out.tmp/` is atomically swapped into `out/`.
 
 ### 5. Zero-Remount Desktop 3-Tab Shell Pattern
-- Tab order: **Vibe**, **Preview**, **Code** strictly in the bottom desktop dock. Topnav contains zero tab buttons.
-- All three views remain permanently mounted; CSS display toggling ensures zero-remount state preservation across tab switches.
+- Tab order: **Vibe**, **Preview**, **Code** strictly in the bottom desktop dock.
+- Topnav contains app branding, site title/path, "Switch Site" button, and the gear icon Settings button.
+- All three primary views remain permanently mounted; CSS display toggling ensures zero-remount state preservation across tab switches.

@@ -8,6 +8,17 @@ body,
   padding: 0;
   overflow: hidden;
   user-select: none;
+  color-scheme: dark;
+}
+
+/* Ensure select elements and options have solid dark background and light text */
+select {
+  color-scheme: dark;
+}
+
+select option {
+  background-color: #0a0a0a;
+  color: #f5f5f5;
 }
 
 /* Subtle scrollbars for desktop studio panels */

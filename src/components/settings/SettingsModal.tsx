@@ -265,7 +265,7 @@ export function SettingsModal({ isOpen, onClose, onSettingsSaved, isInline = fal
                 <select
                   value={selectedProviderId}
                   onChange={(e) => handleSelectProvider(e.target.value)}
-                  className="w-full bg-neutral-950 border border-neutral-700 rounded-lg p-2.5 text-xs text-neutral-100 outline-none focus:border-indigo-500"
+                  className="w-full bg-neutral-950 border border-neutral-700 rounded-lg p-2.5 text-xs text-neutral-100 outline-none focus:border-indigo-500 [&>option]:bg-neutral-950 [&>option]:text-neutral-100"
                 >
                   <option value="gemini-native">Gemini (Native) — @ai-sdk/google</option>
                   <option value="openai">OpenAI — AI SDK OpenAI provider</option>
@@ -302,7 +302,7 @@ export function SettingsModal({ isOpen, onClose, onSettingsSaved, isInline = fal
                     <select
                       value={selectedModel}
                       onChange={(e) => setSelectedModel(e.target.value)}
-                      className="w-full bg-neutral-950 border border-neutral-700 rounded-lg p-2.5 text-xs text-neutral-100 outline-none focus:border-indigo-500 font-mono"
+                      className="w-full bg-neutral-950 border border-neutral-700 rounded-lg p-2.5 text-xs text-neutral-100 outline-none focus:border-indigo-500 font-mono [&>option]:bg-neutral-950 [&>option]:text-neutral-100"
                     >
                       {currentRegistryInfo.default_models.map((m) => (
                         <option key={m} value={m}>
@@ -378,7 +378,7 @@ export function SettingsModal({ isOpen, onClose, onSettingsSaved, isInline = fal
                   value={selectedThinking}
                   onChange={(e) => setSelectedThinking(e.target.value)}
                   disabled={isMuseSpark}
-                  className="w-full bg-neutral-950 border border-neutral-700 rounded-lg p-2.5 text-xs text-neutral-100 outline-none focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-neutral-950 border border-neutral-700 rounded-lg p-2.5 text-xs text-neutral-100 outline-none focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed [&>option]:bg-neutral-950 [&>option]:text-neutral-100"
                 >
                   <option value="default">Provider Default (send nothing)</option>
                   <option value="low">Low</option>

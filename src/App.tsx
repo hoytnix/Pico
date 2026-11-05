@@ -4,6 +4,7 @@ import {
   Eye,
   Code2,
   FolderOpen,
+  Settings,
 } from 'lucide-react';
 import { picoApi } from './api';
 import { markdownToEditorHtml } from './lib/markdown/serializer';
@@ -119,6 +120,16 @@ export function App() {
             <FolderOpen className="w-3.5 h-3.5 text-indigo-400" />
             <span>Switch Site</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setIsSettingsOpen(true)}
+            className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white transition-colors cursor-pointer border border-neutral-700 flex items-center justify-center"
+            title="Settings"
+            aria-label="Settings"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
         </div>
       </header>
 
@@ -149,9 +160,7 @@ export function App() {
             llmSettings={llmSettings}
             activePostPath={activePostPath}
             onPostUpdatedFromVibe={handlePostUpdatedFromVibe}
-            onOpenSettings={() => {
-              setActiveTab('code');
-            }}
+            onOpenSettings={() => setIsSettingsOpen(true)}
           />
         </div>
 
