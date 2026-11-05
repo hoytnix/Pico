@@ -1,14 +1,17 @@
 # Active Context: Pico
 
 ## Current Focus
-Added support for new Google models across the LLM subsystem, presets, thinking controls, and connection testing:
-* **Gemma 4 26B** (`gemma-4-26b-a4b-it`)
-* **Gemma 4 31B** (`gemma-4-31b-it`)
-* **Gemini 3.6 Flash** (`gemini-3.6-flash`)
-* **Gemini 3.1 Flash-Lite** (`gemini-3.1-flash-lite`)
+Resolved Vibe multi-file proposal clobbering by implementing sequential diff rendering, individual approval tracking, and batch accept/reject actions.
 
 ## Recent State Changes
-1. **Google Models Support (Gemma 4 & Gemini 3.6 / 3.1):**
+1. **Sequential Multi-File Diff Rendering in Vibe AI (`src/components/vibe/VibePane.tsx` & `src/lib/vibeAgent.ts`):**
+   - **Root Cause:** When an instruction required edits to more than one file, the agent executed `proposeEdit` for each file. Previously, `Message` and `pendingProposal` stored only a single proposal reference. Each new proposal immediately overwrote the previous one, causing earlier diffs to appear briefly and disappear before the user could review or accept them.
+   - **Multi-Proposal State:** Added `ProposalItem` interface extending `ProposeEditResult` with unique `id` and independent `status` (`'pending' | 'accepted' | 'rejected'`). Stored proposals as an array (`proposals?: ProposalItem[]`) on `Message`, appending each proposal emitted during the turn.
+   - **Sequential UI & Independent Approval:** Rendered all diff cards sequentially in order (`Diff X of Y`) inside the assistant message bubble. Each diff card features dedicated `Accept & Save` and `Reject` buttons that update the specific proposal without altering or discarding others.
+   - **Batch Action Bar:** When more than one proposal is pending, an action bar displays with pending count and `Accept All` / `Reject All` buttons for rapid review.
+   - **Per-Proposal Processing State:** Added `processingProposalIds` state to disable buttons during disk save on a per-card basis.
+   - **Vibe Instructions & Tool IDs:** Added unique proposal IDs in `vibeAgent.ts` `proposeEdit` tool results and instructed Vibe to invoke `proposeEdit` sequentially for each affected file when addressing multi-file prompts.
+2. **Google Models Support (Gemma 4 & Gemini 3.6 / 3.1):**
    - **Backend Provider Registry (`src-tauri/src/llm.rs`):**
      - Expanded `default_models` in `get_provider_registry()` for both `gemini-native` and `gemini-openai` to include `gemini-3.6-flash`, `gemini-3.1-flash-lite`, `gemma-4-31b-it`, and `gemma-4-26b-a4b-it`.
      - Implemented `normalize_google_model_id` to normalize model aliases (e.g. `gemma-4-26b`, `gemma 4 26b`, `gemma-4-26b-it` -> `gemma-4-26b-a4b-it`; `gemma-4-31b` -> `gemma-4-31b-it`; `gemini-3.6` -> `gemini-3.6-flash`; `gemini-3.1` -> `gemini-3.1-flash-lite`; and `google/` OpenRouter prefixed variants).

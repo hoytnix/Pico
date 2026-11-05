@@ -207,6 +207,7 @@ export function createVibeModel(config: VibeAgentConfig) {
 }
 
 export interface ProposeEditResult {
+  id?: string;
   targetType: 'content' | 'template' | 'theme' | 'model';
   path: string;
   diff: string;
@@ -351,6 +352,7 @@ export function createVibeAgent(
           const evalResult = await picoApi.evaluateVibeProposal(target, proposedContent);
 
           const result: ProposeEditResult = {
+            id: `proposal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
             targetType,
             path: cleanPath,
             diff: evalResult.diff,
@@ -366,6 +368,7 @@ export function createVibeAgent(
 
           return {
             status: 'proposal-created',
+            id: result.id,
             path: cleanPath,
             explanation: result.explanation,
             message: 'The proposed edit has been created and presented to the user as a diff for review and approval.',
@@ -389,6 +392,7 @@ Safety rules:
 - NEVER output raw shell commands or ask the user to use a terminal. Pico is completely terminal-free.
 - To inspect files or schema, use readContentFile, readTemplateFile, readThemeCss, readModelFile, or listModels.
 - To make a change, inspect the file first using the appropriate read tool, then call proposeEdit with the complete proposed new text.
+- If the user asks for changes across multiple files, call proposeEdit sequentially for each affected file. Each proposal will be presented to the user as a distinct diff card for review.
 - If the user asks to change theme colors, fonts, or styling of their app or site, inspect assets/theme.css using readThemeCss and propose the changes using proposeEdit.
 - If the user asks to view, create, or modify content models / collections (e.g. adding fields to blog, creating a portfolio or team model, modifying model schema), inspect the models using readModelFile or listModels, then propose the updated YAML definition via proposeEdit with targetType 'model' and path 'models/<name>.yaml'.
 - Collection models live in models/<collection>.yaml. Valid field types in Pico are: 'string', 'date', 'tags', 'image', 'bool'. Models must include 'title' and 'date' fields.

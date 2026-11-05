@@ -21,10 +21,16 @@ import {
 import { DiffCard } from './DiffCard';
 import type { LlmSettingsView, SiteInfo } from '../../types';
 
+export interface ProposalItem extends ProposeEditResult {
+  id: string;
+  status: 'pending' | 'accepted' | 'rejected';
+}
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  proposals?: ProposalItem[];
   proposal?: ProposeEditResult;
   proposalStatus?: 'pending' | 'accepted' | 'rejected';
   reasoning?: string;
@@ -63,6 +69,7 @@ export function VibePane({
   const [inputPrompt, setInputPrompt] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [activeError, setActiveError] = useState<string | null>(null);
+  const [processingProposalIds, setProcessingProposalIds] = useState<Record<string, boolean>>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -122,7 +129,7 @@ export function VibePane({
     abortControllerRef.current = abortController;
 
     try {
-      let pendingProposal: ProposeEditResult | undefined = undefined;
+      const turnProposals: ProposalItem[] = [];
 
       const config = {
         provider: currentProviderId,
@@ -138,17 +145,27 @@ export function VibePane({
       const agent = createVibeAgent(
         config,
         (proposal) => {
-          pendingProposal = proposal;
+          const propId =
+            proposal.id ||
+            `prop-${Date.now()}-${turnProposals.length + 1}-${Math.random().toString(36).slice(2, 6)}`;
+          const proposalItem: ProposalItem = {
+            ...proposal,
+            id: propId,
+            status: 'pending',
+          };
+          turnProposals.push(proposalItem);
+
           setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantMsgId
-                ? {
-                    ...m,
-                    proposal,
-                    proposalStatus: 'pending',
-                  }
-                : m
-            )
+            prev.map((m) => {
+              if (m.id !== assistantMsgId) return m;
+              const existingProposals = m.proposals || [];
+              return {
+                ...m,
+                proposals: [...existingProposals, proposalItem],
+                proposal,
+                proposalStatus: 'pending',
+              };
+            })
           );
         },
         (err) => {
@@ -201,10 +218,19 @@ export function VibePane({
           )
         );
       } else if (!accumulatedText.trim()) {
-        const capturedProposal = pendingProposal as ProposeEditResult | undefined;
-        const fallbackText = capturedProposal
-          ? capturedProposal.explanation || `I have prepared a proposed edit for ${capturedProposal.path}. Please review the diff below.`
-          : 'I was unable to propose any changes for this request. Please try rephrasing or inspect the file directly.';
+        const count = turnProposals.length;
+        let fallbackText = '';
+        if (count === 1) {
+          const first = turnProposals[0];
+          fallbackText =
+            first.explanation ||
+            `I have prepared a proposed edit for ${first.path}. Please review the diff below.`;
+        } else if (count > 1) {
+          fallbackText = `I have prepared proposed edits for ${count} files. Please review each diff below sequentially.`;
+        } else {
+          fallbackText =
+            'I was unable to propose any changes for this request. Please try rephrasing or inspect the file directly.';
+        }
 
         setMessages((prev) =>
           prev.map((m) =>
@@ -250,7 +276,12 @@ export function VibePane({
     setIsStreaming(false);
   };
 
-  const handleAcceptProposal = async (msgId: string, proposal: ProposeEditResult) => {
+  const handleAcceptProposal = async (
+    msgId: string,
+    propId: string,
+    proposal: ProposeEditResult
+  ) => {
+    setProcessingProposalIds((prev) => ({ ...prev, [propId]: true }));
     try {
       if (proposal.targetType === 'content') {
         const doc = await picoApi.readPost(proposal.path);
@@ -276,31 +307,57 @@ export function VibePane({
       }
 
       setMessages((prev) =>
-        prev.map((m) =>
-          m.id === msgId
-            ? {
-                ...m,
-                proposalStatus: 'accepted',
-              }
-            : m
-        )
+        prev.map((m) => {
+          if (m.id !== msgId) return m;
+          const updatedProposals = m.proposals?.map((p) =>
+            p.id === propId ? { ...p, status: 'accepted' as const } : p
+          );
+          const hasPending = updatedProposals?.some((p) => p.status === 'pending');
+          return {
+            ...m,
+            proposals: updatedProposals,
+            proposalStatus: hasPending ? 'pending' : 'accepted',
+          };
+        })
       );
     } catch (err: any) {
       setActiveError(`Failed to save accepted edit: ${err.message || String(err)}`);
+    } finally {
+      setProcessingProposalIds((prev) => ({ ...prev, [propId]: false }));
     }
   };
 
-  const handleRejectProposal = (msgId: string) => {
+  const handleRejectProposal = (msgId: string, propId: string) => {
     setMessages((prev) =>
-      prev.map((m) =>
-        m.id === msgId
-          ? {
-              ...m,
-              proposalStatus: 'rejected',
-            }
-          : m
-      )
+      prev.map((m) => {
+        if (m.id !== msgId) return m;
+        const updatedProposals = m.proposals?.map((p) =>
+          p.id === propId ? { ...p, status: 'rejected' as const } : p
+        );
+        const hasPending = updatedProposals?.some((p) => p.status === 'pending');
+        return {
+          ...m,
+          proposals: updatedProposals,
+          proposalStatus: hasPending ? 'pending' : 'rejected',
+        };
+      })
     );
+  };
+
+  const handleAcceptAll = async (msgId: string, proposals: ProposalItem[]) => {
+    const pendingToAccept = proposals.filter((p) => p.status === 'pending' && !p.validationError);
+    if (pendingToAccept.length === 0) return;
+
+    for (const prop of pendingToAccept) {
+      await handleAcceptProposal(msgId, prop.id, prop);
+    }
+  };
+
+  const handleRejectAll = (msgId: string, proposals: ProposalItem[]) => {
+    const pendingToReject = proposals.filter((p) => p.status === 'pending');
+    for (const prop of pendingToReject) {
+      handleRejectProposal(msgId, prop.id);
+    }
   };
 
   const handleClearHistory = () => {
@@ -389,23 +446,78 @@ export function VibePane({
 
             {/* Bubble */}
             <div
-              className={`rounded-2xl px-4 py-3 text-sm leading-relaxed max-w-2xl shadow-sm ${
+              className={`rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
                 msg.role === 'user'
-                  ? 'bg-indigo-600 text-white rounded-tr-none'
-                  : 'bg-neutral-900 border border-neutral-800 text-neutral-200 rounded-tl-none'
+                  ? 'bg-indigo-600 text-white rounded-tr-none max-w-2xl'
+                  : 'bg-neutral-900 border border-neutral-800 text-neutral-200 rounded-tl-none w-full max-w-3xl'
               }`}
             >
               {msg.content ? (
                 <div className="whitespace-pre-wrap break-words">{msg.content}</div>
-              ) : isStreaming && msg.role === 'assistant' && !msg.proposal ? (
+              ) : isStreaming &&
+                msg.role === 'assistant' &&
+                (!msg.proposals || msg.proposals.length === 0) &&
+                !msg.proposal ? (
                 <div className="flex items-center gap-1.5 text-xs text-neutral-400 py-1">
                   <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
                   <span>Thinking & drafting response...</span>
                 </div>
               ) : null}
 
-              {/* Proposed Edit Diff Card */}
-              {msg.proposal && (
+              {/* Proposed Edit Diff Cards (Rendered sequentially) */}
+              {msg.proposals && msg.proposals.length > 0 ? (
+                <div className="mt-3 space-y-3">
+                  {/* Batch actions if more than 1 pending proposal */}
+                  {msg.proposals.filter((p) => p.status === 'pending').length > 1 && (
+                    <div className="flex items-center justify-between px-3 py-2 bg-neutral-950/80 border border-neutral-800 rounded-lg text-xs">
+                      <span className="text-neutral-400 font-medium">
+                        {msg.proposals.filter((p) => p.status === 'pending').length} pending changes
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleRejectAll(msg.id, msg.proposals!)}
+                          className="px-2.5 py-1 text-xs rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors cursor-pointer"
+                        >
+                          Reject All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAcceptAll(msg.id, msg.proposals!)}
+                          className="px-2.5 py-1 text-xs rounded bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors cursor-pointer"
+                        >
+                          Accept All
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {msg.proposals.map((prop, idx) => (
+                    <div key={prop.id || idx} className="space-y-1">
+                      {msg.proposals!.length > 1 && (
+                        <div className="flex items-center justify-between text-[11px] font-mono text-neutral-400 px-1 pt-1">
+                          <span className="font-semibold text-neutral-300">
+                            Diff {idx + 1} of {msg.proposals!.length}
+                          </span>
+                          <span className="text-neutral-500 truncate max-w-xs">{prop.path}</span>
+                        </div>
+                      )}
+                      <DiffCard
+                        targetType={prop.targetType}
+                        targetPath={prop.path}
+                        diff={prop.diff}
+                        explanation={prop.explanation}
+                        validationError={prop.validationError}
+                        sources={prop.sources}
+                        status={prop.status}
+                        isProcessing={Boolean(processingProposalIds[prop.id])}
+                        onAccept={() => handleAcceptProposal(msg.id, prop.id, prop)}
+                        onReject={() => handleRejectProposal(msg.id, prop.id)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : msg.proposal ? (
                 <DiffCard
                   targetType={msg.proposal.targetType}
                   targetPath={msg.proposal.path}
@@ -414,10 +526,11 @@ export function VibePane({
                   validationError={msg.proposal.validationError}
                   sources={msg.proposal.sources}
                   status={msg.proposalStatus || 'pending'}
-                  onAccept={() => handleAcceptProposal(msg.id, msg.proposal!)}
-                  onReject={() => handleRejectProposal(msg.id)}
+                  isProcessing={Boolean(processingProposalIds['legacy'])}
+                  onAccept={() => handleAcceptProposal(msg.id, 'legacy', msg.proposal!)}
+                  onReject={() => handleRejectProposal(msg.id, 'legacy')}
                 />
-              )}
+              ) : null}
 
               {msg.error && (
                 <div className="mt-2 text-xs text-red-400 border-t border-neutral-800 pt-1.5">
