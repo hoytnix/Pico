@@ -1,10 +1,17 @@
 # Active Context: Pico
 
 ## Current Focus
-Diagnosed and fixed Vibe agent empty/blank responses when proposing edits.
+Implemented comprehensive, verbose logging pipeline writing to `~/.pico.log` for both backend and frontend.
 
 ## Recent State Changes
-1. **Vibe Agent Empty Response & Tool Loop Fix:**
+1. **Verbose Unified File Logging to `~/.pico.log`:**
+   - Implemented thread-safe `PicoFileLogger` in [logger.rs](file:///home/oloty/Dev/Pico/src-tauri/src/logger.rs) implementing the standard `log::Log` facade, writing millisecond-precision timestamped entries directly to `~/.pico.log` with immediate flushing on every write.
+   - Installed panic hook in Rust to capture and log critical panics with source file, line number, and payload before termination.
+   - Added `log_frontend` Tauri command to channel frontend logs into the same unified log file.
+   - Implemented [logger.ts](file:///home/oloty/Dev/Pico/src/lib/logger.ts) in frontend: intercepts `console.log`, `info`, `warn`, `error`, `debug`, hooks `window.onerror` and `window.onunhandledrejection`, and exports `picoLog`.
+   - Wrapped all Tauri API invocations in [api.ts](file:///home/oloty/Dev/Pico/src/api.ts) with `apiInvoke` to log command entry, argument keys, success, and detailed error messages.
+   - Added verbose logging across [lib.rs](file:///home/oloty/Dev/Pico/src-tauri/src/lib.rs) commands, [builder.rs](file:///home/oloty/Dev/Pico/src-tauri/src/builder.rs) 10-step build pipeline, [preview.rs](file:///home/oloty/Dev/Pico/src-tauri/src/preview.rs) watcher/server events, and [publish.rs](file:///home/oloty/Dev/Pico/src-tauri/src/publish.rs) git operations.
+2. **Vibe Agent Empty Response & Tool Loop Fix:**
    - Identified that AI SDK v7's `toolApproval: { proposeEdit: 'user-approval' }` configuration on `ToolLoopAgent` paused the tool loop before `proposeEdit.execute()` could run, waiting indefinitely for client approval tokens before proceeding. Because the loop was frozen waiting for tool results, the agent never called `execute()` (leaving the proposal diff card ungenerated) and never streamed an explanation, resulting in a blank response.
    - Refactored `proposeEdit` in [vibeAgent.ts](file:///home/oloty/Dev/Pico/src/lib/vibeAgent.ts): the tool execution itself runs `evaluateVibeProposal`, generates the diff card via `onProposalCreated`, and returns confirmation to the model. The model is then prompted to explain the changes in its streaming response. Disk saves remain strictly gated behind user action ("Accept & Save" / "Reject").
    - Added fallback summary text in [VibePane.tsx](file:///home/oloty/Dev/Pico/src/components/vibe/VibePane.tsx) so that even if a model halts after emitting a tool call without generating text, the user receives a helpful message instead of a blank card.

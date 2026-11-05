@@ -26,8 +26,10 @@ pub async fn publish_to_github_pages(
     site_root: &Path,
     settings: &PersistedAppSettings,
 ) -> PublishResult {
+    log::info!(target: "pico::publish", "Publishing site at {:?} to GitHub Pages...", site_root);
     let out_dir = site_root.join("out");
     if !out_dir.is_dir() {
+        log::warn!(target: "pico::publish", "Publish aborted: out/ directory does not exist in {:?}", site_root);
         return PublishResult {
             success: false,
             message: "Site has not been built yet — click Build first, or use Export.".to_string(),
@@ -38,6 +40,7 @@ pub async fn publish_to_github_pages(
     // 1. Check if `git` binary is available
     let git_version = Command::new("git").arg("--version").output();
     if git_version.is_err() || !git_version.unwrap().status.success() {
+        log::error!(target: "pico::publish", "Publish aborted: Git is not installed or available in PATH");
         return PublishResult {
             success: false,
             message: "Git is not installed on this computer — use Export to save your built site folder.".to_string(),
@@ -52,6 +55,7 @@ pub async fn publish_to_github_pages(
         .args(["rev-parse", "--is-inside-work-tree"])
         .output();
     if is_repo.is_err() || !is_repo.unwrap().status.success() {
+        log::warn!(target: "pico::publish", "Publish aborted: site root {:?} is not a git repository", site_root);
         return PublishResult {
             success: false,
             message: "This site folder is not a git repository — use Export, or initialize a git repository with a GitHub remote.".to_string(),
@@ -72,6 +76,7 @@ pub async fn publish_to_github_pages(
     };
 
     if remote_url.is_empty() {
+        log::warn!(target: "pico::publish", "Publish aborted: no remote 'origin' found in {:?}", site_root);
         return PublishResult {
             success: false,
             message: "No git remote found — use Export, or connect GitHub in Settings".to_string(),
@@ -82,6 +87,7 @@ pub async fn publish_to_github_pages(
     let (owner, repo) = match parse_github_owner_repo(&remote_url) {
         Some(pair) => pair,
         None => {
+            log::warn!(target: "pico::publish", "Remote '{}' is not recognized as a GitHub repository", remote_url);
             return PublishResult {
                 success: false,
                 message: format!(
@@ -92,6 +98,7 @@ pub async fn publish_to_github_pages(
             }
         }
     };
+    log::info!(target: "pico::publish", "Target GitHub repo: {}/{}", owner, repo);
 
     // 4. Commit and push `out/` to `gh-pages` branch using a temporary git repo inside `out/`
     let git_in_out = out_dir.join(".git");
@@ -142,9 +149,12 @@ pub async fn publish_to_github_pages(
     let _ = std::fs::remove_dir_all(&git_in_out);
 
     match push_res {
-        Ok(o) if o.status.success() => {}
+        Ok(o) if o.status.success() => {
+            log::info!(target: "pico::publish", "git push to gh-pages succeeded");
+        }
         Ok(o) => {
             let stderr = String::from_utf8_lossy(&o.stderr);
+            log::error!(target: "pico::publish", "git push to gh-pages failed: {}", stderr);
             return PublishResult {
                 success: false,
                 message: format!(
@@ -155,6 +165,7 @@ pub async fn publish_to_github_pages(
             };
         }
         Err(e) => {
+            log::error!(target: "pico::publish", "Failed to execute git push: {}", e);
             return PublishResult {
                 success: false,
                 message: format!("Failed to run git push ({}) — use Export.", e),

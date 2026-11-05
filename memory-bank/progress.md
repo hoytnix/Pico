@@ -1,15 +1,16 @@
 # Progress & Roadmap: Pico
 
 ## Build & Test Status
-- **Rust Backend (`cargo test`):** 19 passed; 0 failed (28.37s).
+- **Rust Backend (`cargo test`):** 21 passed; 0 failed (28.73s).
 - **Frontend Bundle (`pnpm build`):** Builds cleanly (`tsc --noEmit && vite build`), generating Tailwind v4 CSS bundle.
-- **Release Executable (`pnpm run build:bin`):** Compiles standalone release binary to `target/release/pico` (optimized 64-bit ELF on Linux, with embedded starter templates) in 30.50s.
-- **Backend Type Check (`cargo check`):** Clean, 0 warnings (0.18s).
+- **Release Executable (`pnpm run build:bin`):** Compiles standalone release binary to `target/release/pico` (optimized 64-bit ELF on Linux, with embedded starter templates) in 44.67s.
+- **Backend Type Check (`cargo check`):** Clean, 0 warnings.
 
 ## Feature Matrix & Completed Modules
 
 | Module / Requirement | Status | Notes |
 | --- | --- | --- |
+| Verbose File Logging (`~/.pico.log`) | Completed | Implemented unified file logger in `src-tauri/src/logger.rs` and frontend client in `src/lib/logger.ts`. Writes millisecond-timestamped logs to `~/.pico.log`, capturing Rust panics, all Tauri commands, build steps, preview watcher events, git actions, and frontend console/window errors. |
 | Vibe Proposal Loop Fix | Completed | Resolved issue where `toolApproval: 'user-approval'` halted `ToolLoopAgent` before `execute()` could run, causing blank responses. `proposeEdit` now generates diffs during execution and returns status to the loop so the model streams its explanation, while keeping file saves gated behind manual user Accept/Reject. |
 | Memory Bank Git Commit Rule | Completed | Added Step 4 and strict guardrail to `GEMINI.md` to ensure memory bank updates are committed to Git immediately after modification. |
 | Gemini Native CSP Fix | Completed | Added `https://generativelanguage.googleapis.com`, `https://api.meta.ai`, and `https://openrouter.ai` to CSP `connect-src` in `tauri.conf.json` to eliminate WebKit "Load failed" fetch blocking. Also mapped `load failed` in `formatLlmError`. |

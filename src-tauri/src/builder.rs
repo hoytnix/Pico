@@ -547,6 +547,13 @@ pub fn build_site_pipeline(
     include_drafts: bool,
     inject_live_reload: bool,
 ) -> BuildResult {
+    log::info!(
+        target: "pico::builder",
+        "Build pipeline started: site_root={:?}, include_drafts={}, inject_live_reload={}",
+        site_root,
+        include_drafts,
+        inject_live_reload
+    );
     let out_final = site_root.join("out");
     let out_tmp = site_root.join("out.tmp");
     let mut errors: Vec<BuildError> = Vec::new();
@@ -559,6 +566,7 @@ pub fn build_site_pipeline(
         let _ = fs::remove_dir_all(&out_tmp);
     }
     if let Err(e) = fs::create_dir_all(&out_tmp) {
+        log::error!(target: "pico::builder", "Could not create temporary out.tmp directory: {}", e);
         return BuildResult {
             success: false,
             out_dir: out_final.to_string_lossy().to_string(),
@@ -576,6 +584,7 @@ pub fn build_site_pipeline(
     let site_config = match load_site_config(site_root) {
         Ok(cfg) => cfg,
         Err(err) => {
+            log::error!(target: "pico::builder", "Failed to load site.yaml: {}", err);
             let _ = fs::remove_dir_all(&out_tmp);
             return BuildResult {
                 success: false,
@@ -1408,6 +1417,12 @@ pub fn build_site_pipeline(
     }
 
     if !errors.is_empty() {
+        log::error!(
+            target: "pico::builder",
+            "Build failed with {} errors: {:?}",
+            errors.len(),
+            errors
+        );
         // Do NOT overwrite a previous good `out/` with a partial/broken build!
         let _ = fs::remove_dir_all(&out_tmp);
         return BuildResult {
@@ -1428,6 +1443,12 @@ pub fn build_site_pipeline(
     if let Err(e) = fs::rename(&out_tmp, &out_final) {
         // Fallback if rename across mount points
         if let Err(copy_err) = copy_dir_recursive(&out_tmp, &out_final) {
+            log::error!(
+                target: "pico::builder",
+                "Failed to finalize out/ directory (rename err: {}, copy err: {})",
+                e,
+                copy_err
+            );
             return BuildResult {
                 success: false,
                 out_dir: out_final.to_string_lossy().to_string(),
@@ -1443,6 +1464,14 @@ pub fn build_site_pipeline(
         }
         let _ = fs::remove_dir_all(&out_tmp);
     }
+
+    log::info!(
+        target: "pico::builder",
+        "Build finished successfully: pages_built={}, images_generated={}, out_dir={:?}",
+        pages_built,
+        images_generated,
+        out_final
+    );
 
     BuildResult {
         success: true,

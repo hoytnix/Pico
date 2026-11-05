@@ -1,5 +1,6 @@
 pub mod builder;
 pub mod llm;
+pub mod logger;
 pub mod models;
 pub mod preview;
 pub mod publish;
@@ -792,8 +793,12 @@ fn require_current_site(state: &State<'_, AppState>) -> Result<PathBuf, String> 
 
 #[tauri::command]
 fn open_site(path: String, state: State<'_, AppState>) -> Result<SiteInfo, String> {
+    log::info!(target: "pico::site", "open_site requested: {:?}", path);
     let site_root = PathBuf::from(&path);
-    let info = open_site_impl(&site_root)?;
+    let info = open_site_impl(&site_root).map_err(|err| {
+        log::error!(target: "pico::site", "open_site failed for {:?}: {}", path, err);
+        err
+    })?;
     let canonical = PathBuf::from(&info.path);
 
     {
@@ -802,12 +807,14 @@ fn open_site(path: String, state: State<'_, AppState>) -> Result<SiteInfo, Strin
     }
 
     // Start live-reload file watcher (300ms debounce)
-    if let Ok(watcher) = start_site_watcher(canonical, state.preview_revision.clone()) {
+    if let Ok(watcher) = start_site_watcher(canonical.clone(), state.preview_revision.clone()) {
         if let Ok(mut w_guard) = state.watcher_handle.lock() {
             *w_guard = Some(watcher);
+            log::debug!(target: "pico::site", "Preview watcher started for {:?}", canonical);
         }
     }
 
+    log::info!(target: "pico::site", "open_site successful: title='{}', path='{}', collections={}", info.config.title, info.path, info.collections.len());
     Ok(info)
 }
 
@@ -819,8 +826,12 @@ fn create_site(
     author: String,
     state: State<'_, AppState>,
 ) -> Result<SiteInfo, String> {
+    log::info!(target: "pico::site", "create_site requested: path={:?}, starter='{}', title='{}', author='{}'", path, starter, title, author);
     let dest = PathBuf::from(&path);
-    let info = create_site_impl(&dest, &starter, &title, &author)?;
+    let info = create_site_impl(&dest, &starter, &title, &author).map_err(|err| {
+        log::error!(target: "pico::site", "create_site failed for {:?}: {}", path, err);
+        err
+    })?;
     let canonical = PathBuf::from(&info.path);
 
     {
@@ -828,18 +839,22 @@ fn create_site(
         *cur = Some(canonical.clone());
     }
 
-    if let Ok(watcher) = start_site_watcher(canonical, state.preview_revision.clone()) {
+    if let Ok(watcher) = start_site_watcher(canonical.clone(), state.preview_revision.clone()) {
         if let Ok(mut w_guard) = state.watcher_handle.lock() {
             *w_guard = Some(watcher);
+            log::debug!(target: "pico::site", "Preview watcher started for {:?}", canonical);
         }
     }
 
+    log::info!(target: "pico::site", "create_site successful: path='{}'", info.path);
     Ok(info)
 }
 
 #[tauri::command]
 fn get_recent_sites() -> Result<Vec<RecentSite>, String> {
-    Ok(load_persisted_settings().recent_sites)
+    let recent = load_persisted_settings().recent_sites;
+    log::debug!(target: "pico::site", "get_recent_sites: returned {} sites", recent.len());
+    Ok(recent)
 }
 
 #[tauri::command]
@@ -848,13 +863,23 @@ fn list_content(
     state: State<'_, AppState>,
 ) -> Result<Vec<PostMeta>, String> {
     let site_root = require_current_site(&state)?;
-    list_content_impl(&site_root, &collection)
+    log::debug!(target: "pico::content", "list_content for collection '{}'", collection);
+    let posts = list_content_impl(&site_root, &collection).map_err(|err| {
+        log::error!(target: "pico::content", "list_content failed for '{}': {}", collection, err);
+        err
+    })?;
+    log::debug!(target: "pico::content", "list_content: found {} posts in '{}'", posts.len(), collection);
+    Ok(posts)
 }
 
 #[tauri::command]
 fn read_post(path: String, state: State<'_, AppState>) -> Result<PostDocument, String> {
     let site_root = require_current_site(&state)?;
-    read_post_impl(&site_root, &path)
+    log::debug!(target: "pico::content", "read_post: {:?}", path);
+    read_post_impl(&site_root, &path).map_err(|err| {
+        log::error!(target: "pico::content", "read_post failed for {:?}: {}", path, err);
+        err
+    })
 }
 
 #[tauri::command]
@@ -865,26 +890,39 @@ fn save_post(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let site_root = require_current_site(&state)?;
-    save_post_impl(&site_root, &path, frontmatter, &markdown)
+    log::info!(target: "pico::content", "save_post: {:?} (markdown length: {} chars)", path, markdown.len());
+    save_post_impl(&site_root, &path, frontmatter, &markdown).map_err(|err| {
+        log::error!(target: "pico::content", "save_post failed for {:?}: {}", path, err);
+        err
+    })?;
+    log::info!(target: "pico::content", "save_post succeeded: {:?}", path);
+    Ok(())
 }
 
 #[tauri::command]
 fn delete_post(path: String, state: State<'_, AppState>) -> Result<(), String> {
     let site_root = require_current_site(&state)?;
+    log::info!(target: "pico::content", "delete_post: {:?}", path);
     let full_path = if Path::new(&path).is_absolute() {
         PathBuf::from(&path)
     } else {
         site_root.join(path.trim_start_matches('/'))
     };
     if !full_path.exists() {
+        log::warn!(target: "pico::content", "delete_post target does not exist: {:?}", full_path);
         return Err(format!("Post '{}' does not exist.", path));
     }
 
     // Try moving to OS Trash first (§3.2); fall back to file removal since user already confirmed in dialog
     if trash::delete(&full_path).is_err() {
         fs::remove_file(&full_path)
-            .map_err(|e| format!("Failed to delete '{}': {}", path, e))?;
+            .map_err(|e| {
+                let msg = format!("Failed to delete '{}': {}", path, e);
+                log::error!(target: "pico::content", "{}", msg);
+                msg
+            })?;
     }
+    log::info!(target: "pico::content", "delete_post succeeded: {:?}", full_path);
     Ok(())
 }
 
@@ -896,6 +934,7 @@ fn save_image(
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     let site_root = require_current_site(&state)?;
+    log::info!(target: "pico::assets", "save_image: source={:?}, post_slug='{}', collection='{}'", source_path, post_slug, collection);
     save_image_impl(&site_root, Path::new(&source_path), &post_slug, &collection)
 }
 
@@ -909,6 +948,7 @@ fn save_image_bytes(
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     let site_root = require_current_site(&state)?;
+    log::info!(target: "pico::assets", "save_image_bytes: file_name='{}', size={} bytes, post_slug='{}', collection='{}', site_wide={}", file_name, bytes.len(), post_slug, collection, site_wide);
     let safe_name = Path::new(&file_name)
         .file_name()
         .and_then(|n| n.to_str())
@@ -921,6 +961,7 @@ fn save_image_bytes(
         let dest = dest_dir.join(&safe_name);
         fs::write(&dest, &bytes)
             .map_err(|e| format!("Could not write image to assets/: {}", e))?;
+        log::info!(target: "pico::assets", "Saved site-wide image: /assets/{}", safe_name);
         Ok(format!("/assets/{}", safe_name))
     } else {
         let (_, col_dir) = resolve_collection_folder(&site_root, &collection);
@@ -930,12 +971,14 @@ fn save_image_bytes(
         let dest = dest_dir.join(&safe_name);
         fs::write(&dest, &bytes)
             .map_err(|e| format!("Could not write image to post folder: {}", e))?;
+        log::info!(target: "pico::assets", "Saved post image: {} (in {})", safe_name, dest_dir.display());
         Ok(safe_name)
     }
 }
 
 #[tauri::command]
 fn check_image_size(source_path: String) -> Result<u64, String> {
+    log::debug!(target: "pico::assets", "check_image_size: source={:?}", source_path);
     let meta = fs::metadata(&source_path)
         .map_err(|e| format!("Could not inspect image '{}': {}", source_path, e))?;
     Ok(meta.len())
@@ -944,24 +987,34 @@ fn check_image_size(source_path: String) -> Result<u64, String> {
 #[tauri::command]
 fn list_models(state: State<'_, AppState>) -> Result<Vec<ModelDef>, String> {
     let site_root = require_current_site(&state)?;
+    log::debug!(target: "pico::models", "list_models in {:?}", site_root);
     load_models(&site_root).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn save_model(model: ModelDef, state: State<'_, AppState>) -> Result<(), String> {
     let site_root = require_current_site(&state)?;
-    save_model_impl(&site_root, &model)
+    log::info!(target: "pico::models", "save_model: name='{}', label='{}', fields={}", model.name, model.label, model.fields.len());
+    save_model_impl(&site_root, &model).map_err(|err| {
+        log::error!(target: "pico::models", "save_model failed for '{}': {}", model.name, err);
+        err
+    })
 }
 
 #[tauri::command]
 fn delete_model(name: String, state: State<'_, AppState>) -> Result<(), String> {
     let site_root = require_current_site(&state)?;
-    delete_model_impl(&site_root, &name)
+    log::info!(target: "pico::models", "delete_model: '{}'", name);
+    delete_model_impl(&site_root, &name).map_err(|err| {
+        log::error!(target: "pico::models", "delete_model failed for '{}': {}", name, err);
+        err
+    })
 }
 
 #[tauri::command]
 fn list_templates(state: State<'_, AppState>) -> Result<Vec<String>, String> {
     let site_root = require_current_site(&state)?;
+    log::debug!(target: "pico::templates", "list_templates in {:?}", site_root);
     let map = load_all_templates(&site_root).map_err(|e| e.to_string())?;
     let mut names: Vec<String> = map.into_keys().collect();
     names.sort_by(|a, b| {
@@ -979,6 +1032,7 @@ fn list_templates(state: State<'_, AppState>) -> Result<Vec<String>, String> {
 #[tauri::command]
 fn read_template(path: String, state: State<'_, AppState>) -> Result<String, String> {
     let site_root = require_current_site(&state)?;
+    log::debug!(target: "pico::templates", "read_template: {:?}", path);
     let norm = path
         .trim_start_matches("templates/")
         .trim_start_matches('/')
@@ -994,21 +1048,31 @@ fn save_template(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let site_root = require_current_site(&state)?;
+    log::info!(target: "pico::templates", "save_template: {:?} ({} chars)", path, content.len());
     let mut backups = state
         .template_backups
         .lock()
         .map_err(|_| "State lock error")?;
-    save_template_impl(&site_root, &path, &content, &mut backups)
+    save_template_impl(&site_root, &path, &content, &mut backups).map_err(|err| {
+        log::warn!(target: "pico::templates", "save_template rejected for {:?}: {}", path, err);
+        err
+    })?;
+    log::info!(target: "pico::templates", "save_template succeeded: {:?}", path);
+    Ok(())
 }
 
 #[tauri::command]
 fn revert_template(path: String, state: State<'_, AppState>) -> Result<String, String> {
     let site_root = require_current_site(&state)?;
+    log::info!(target: "pico::templates", "revert_template: {:?}", path);
     let mut backups = state
         .template_backups
         .lock()
         .map_err(|_| "State lock error")?;
-    revert_template_impl(&site_root, &path, &mut backups)
+    revert_template_impl(&site_root, &path, &mut backups).map_err(|err| {
+        log::error!(target: "pico::templates", "revert_template failed for {:?}: {}", path, err);
+        err
+    })
 }
 
 #[tauri::command]
@@ -1087,6 +1151,7 @@ fn get_template_context(
 #[tauri::command]
 fn read_theme(state: State<'_, AppState>) -> Result<String, String> {
     let site_root = require_current_site(&state)?;
+    log::debug!(target: "pico::theme", "read_theme in {:?}", site_root);
     let p = site_root.join("assets").join("theme.css");
     fs::read_to_string(&p).map_err(|e| format!("assets/theme.css: {}", e))
 }
@@ -1094,22 +1159,37 @@ fn read_theme(state: State<'_, AppState>) -> Result<String, String> {
 #[tauri::command]
 fn save_theme(content: String, state: State<'_, AppState>) -> Result<(), String> {
     let site_root = require_current_site(&state)?;
+    log::info!(target: "pico::theme", "save_theme: {} chars", content.len());
     if content.contains("{%") || content.contains("{{") {
-        return Err("assets/theme.css must contain CSS only, not MiniJinja tags.".to_string());
+        let msg = "assets/theme.css must contain CSS only, not MiniJinja tags.".to_string();
+        log::warn!(target: "pico::theme", "save_theme rejected: {}", msg);
+        return Err(msg);
     }
     let p = site_root.join("assets").join("theme.css");
-    fs::write(&p, content).map_err(|e| format!("Could not save assets/theme.css: {}", e))
+    fs::write(&p, content).map_err(|e| {
+        let msg = format!("Could not save assets/theme.css: {}", e);
+        log::error!(target: "pico::theme", "{}", msg);
+        msg
+    })
 }
 
 #[tauri::command]
 fn build_site(include_drafts: bool, state: State<'_, AppState>) -> Result<BuildResult, String> {
     let site_root = require_current_site(&state)?;
-    Ok(build_site_pipeline(&site_root, include_drafts, false))
+    log::info!(target: "pico::build", "build_site requested: include_drafts={}, site_root={:?}", include_drafts, site_root);
+    let res = build_site_pipeline(&site_root, include_drafts, false);
+    if res.success {
+        log::info!(target: "pico::build", "build_site succeeded: pages_built={}, images_generated={}", res.pages_built, res.images_generated);
+    } else {
+        log::error!(target: "pico::build", "build_site completed with {} errors: {:?}", res.errors.len(), res.errors);
+    }
+    Ok(res)
 }
 
 #[tauri::command]
 async fn start_preview(state: State<'_, AppState>) -> Result<String, String> {
     let site_root = require_current_site(&state)?;
+    log::info!(target: "pico::preview", "start_preview requested for {:?}", site_root);
 
     // Build site with include_drafts = true and live-reload script injected (§3.5)
     let build_res = build_site_pipeline(&site_root, true, true);
@@ -1120,6 +1200,7 @@ async fn start_preview(state: State<'_, AppState>) -> Result<String, String> {
             .map(|e| e.to_string())
             .collect::<Vec<_>>()
             .join("\n");
+        log::error!(target: "pico::preview", "start_preview build failed: {}", errs);
         return Err(format!("Preview build failed:\n{}", errs));
     }
 
@@ -1131,12 +1212,17 @@ async fn start_preview(state: State<'_, AppState>) -> Result<String, String> {
         let guard = state.preview_server.lock().map_err(|_| "State lock error")?;
         if let Some(existing) = guard.as_ref() {
             if existing.out_dir == out_dir {
-                return Ok(format!("http://127.0.0.1:{}/", existing.port));
+                let url = format!("http://127.0.0.1:{}/", existing.port);
+                log::info!(target: "pico::preview", "Reusing running preview server at {}", url);
+                return Ok(url);
             }
         }
     }
 
-    let port = start_axum_preview_server(out_dir.clone(), state.preview_revision.clone()).await?;
+    let port = start_axum_preview_server(out_dir.clone(), state.preview_revision.clone()).await.map_err(|err| {
+        log::error!(target: "pico::preview", "start_axum_preview_server failed: {}", err);
+        err
+    })?;
     {
         let mut guard = state.preview_server.lock().map_err(|_| "State lock error")?;
         *guard = Some(PreviewServerHandle {
@@ -1146,7 +1232,9 @@ async fn start_preview(state: State<'_, AppState>) -> Result<String, String> {
         });
     }
 
-    Ok(format!("http://127.0.0.1:{}/", port))
+    let url = format!("http://127.0.0.1:{}/", port);
+    log::info!(target: "pico::preview", "Preview server successfully started at {}", url);
+    Ok(url)
 }
 
 #[tauri::command]
@@ -1157,14 +1245,23 @@ fn get_preview_revision(state: State<'_, AppState>) -> Result<u64, String> {
 #[tauri::command]
 fn export_site(dest_path: String, state: State<'_, AppState>) -> Result<(), String> {
     let site_root = require_current_site(&state)?;
-    export_site_impl(&site_root, Path::new(&dest_path))
+    log::info!(target: "pico::export", "export_site requested to {:?}", dest_path);
+    export_site_impl(&site_root, Path::new(&dest_path)).map_err(|err| {
+        log::error!(target: "pico::export", "export_site failed: {}", err);
+        err
+    })?;
+    log::info!(target: "pico::export", "export_site succeeded to {:?}", dest_path);
+    Ok(())
 }
 
 #[tauri::command]
 async fn publish_github_pages(state: State<'_, AppState>) -> Result<PublishResult, String> {
     let site_root = require_current_site(&state)?;
+    log::info!(target: "pico::publish", "publish_github_pages requested for {:?}", site_root);
     let settings = load_persisted_settings();
-    Ok(publish_to_github_pages(&site_root, &settings).await)
+    let res = publish_to_github_pages(&site_root, &settings).await;
+    log::info!(target: "pico::publish", "publish_github_pages result: success={}, message='{}', url={:?}", res.success, res.message, res.url);
+    Ok(res)
 }
 
 #[tauri::command]
@@ -1416,15 +1513,20 @@ fn get_llm_key(provider: String) -> Result<String, String> {
 
 #[tauri::command]
 async fn test_llm_connection(provider: String, model: String) -> Result<TestConnectionResult, String> {
+    log::info!(target: "pico::llm", "test_llm_connection requested: provider='{}', model='{}'", provider, model);
     let s = load_persisted_llm_settings();
-    Ok(crate::llm::test_llm_connection_impl(&provider, Some(&model), &s, None).await)
+    let res = crate::llm::test_llm_connection_impl(&provider, Some(&model), &s, None).await;
+    log::info!(target: "pico::llm", "test_llm_connection result: provider='{}', model='{}', success={}, elapsed={}ms, error={:?}", provider, model, res.success, res.elapsed_ms, res.error);
+    Ok(res)
 }
 
 #[tauri::command]
 fn get_vibe_context(target: VibeTarget, state: State<'_, AppState>) -> Result<VibeContext, String> {
     let site_root = require_current_site(&state)?;
+    log::debug!(target: "pico::vibe", "get_vibe_context requested for target: {:?}", target);
     let original_content = read_vibe_target_content(&site_root, &target)?;
     let system_prompt = build_vibe_system_prompt(&site_root, &target)?;
+    log::debug!(target: "pico::vibe", "get_vibe_context loaded: original length={} chars, system prompt length={} chars", original_content.len(), system_prompt.len());
     Ok(VibeContext {
         original_content,
         system_prompt,
@@ -1439,18 +1541,44 @@ fn evaluate_vibe_proposal_cmd(
     state: State<'_, AppState>,
 ) -> Result<VibeResult, String> {
     let site_root = require_current_site(&state)?;
+    log::info!(target: "pico::vibe", "evaluate_vibe_proposal_cmd: target={:?}, proposed length={} chars, sources count={}", target, proposed.len(), sources.as_ref().map(|s| s.len()).unwrap_or(0));
     let original_content = read_vibe_target_content(&site_root, &target)?;
-    crate::vibe::evaluate_vibe_proposal_with_sources(
+    let res = crate::vibe::evaluate_vibe_proposal_with_sources(
         &site_root,
         &target,
         &original_content,
         &proposed,
         sources,
-    )
+    )?;
+    log::info!(target: "pico::vibe", "evaluate_vibe_proposal_cmd succeeded: target={:?}, diff length={} chars", target, res.diff.len());
+    Ok(res)
+}
+
+#[tauri::command]
+fn log_frontend(level: String, tag: String, message: String) {
+    let clean_tag = if tag.trim().is_empty() {
+        "frontend".to_string()
+    } else if tag.starts_with("frontend") {
+        tag
+    } else {
+        format!("frontend::{}", tag)
+    };
+
+    match level.to_lowercase().as_str() {
+        "trace" => log::trace!(target: &clean_tag, "{}", message),
+        "debug" => log::debug!(target: &clean_tag, "{}", message),
+        "warn" => log::warn!(target: &clean_tag, "{}", message),
+        "error" => log::error!(target: &clean_tag, "{}", message),
+        _ => log::info!(target: &clean_tag, "{}", message),
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    crate::logger::init_logger();
+    log::info!(target: "pico::main", "Starting Pico Desktop Application (v{})...", env!("CARGO_PKG_VERSION"));
+    log::info!(target: "pico::main", "Log file configured at: {:?}", crate::logger::log_file_path());
+
     tauri::Builder::default()
         .manage(AppState::default())
         .plugin(tauri_plugin_dialog::init())
@@ -1458,6 +1586,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![
+            log_frontend,
             open_site,
             create_site,
             get_recent_sites,

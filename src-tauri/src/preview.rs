@@ -14,6 +14,7 @@ pub async fn start_axum_preview_server(
     out_dir: PathBuf,
     revision: Arc<AtomicU64>,
 ) -> Result<u16, String> {
+    log::info!(target: "pico::preview", "Starting axum preview server for {:?}", out_dir);
     let rev_for_route = revision.clone();
     let serve_dir = ServeDir::new(&out_dir).append_index_html_on_directories(true);
 
@@ -37,6 +38,8 @@ pub async fn start_axum_preview_server(
         .map_err(|e| format!("Could not read local preview port: {}", e))?
         .port();
 
+    log::info!(target: "pico::preview", "Axum preview server bound to http://127.0.0.1:{}", port);
+
     tokio::spawn(async move {
         let _ = axum::serve(listener, app).await;
     });
@@ -50,6 +53,7 @@ pub fn start_site_watcher(
     site_root: PathBuf,
     revision: Arc<AtomicU64>,
 ) -> Result<RecommendedWatcher, String> {
+    log::info!(target: "pico::preview", "Starting file watcher for {:?}", site_root);
     let (tx, rx) = channel::<notify::Result<Event>>();
 
     let mut watcher = RecommendedWatcher::new(tx, Config::default())
@@ -82,22 +86,32 @@ pub fn start_site_watcher(
                             || s.ends_with('~')
                     });
                     if !ignored {
+                        log::debug!(target: "pico::preview", "File change detected: {:?}", event.paths);
                         last_event = Some(Instant::now());
                     }
                 }
-                Ok(Err(_)) => {}
+                Ok(Err(e)) => {
+                    log::warn!(target: "pico::preview", "File watcher error: {:?}", e);
+                }
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                     if let Some(ts) = last_event {
                         if ts.elapsed() >= debounce {
                             last_event = None;
+                            log::info!(target: "pico::preview", "Debounce 300ms expired, rebuilding site for live reload...");
                             let res = build_site_pipeline(&site_root, true, true);
                             if res.success {
-                                revision.fetch_add(1, Ordering::SeqCst);
+                                let new_rev = revision.fetch_add(1, Ordering::SeqCst) + 1;
+                                log::info!(target: "pico::preview", "Live reload build successful, revision incremented to {}", new_rev);
+                            } else {
+                                log::error!(target: "pico::preview", "Live reload build failed with errors: {:?}", res.errors);
                             }
                         }
                     }
                 }
-                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                    log::debug!(target: "pico::preview", "File watcher thread channel disconnected");
+                    break;
+                }
             }
         }
     });

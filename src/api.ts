@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open as dialogOpen, ask as dialogAsk } from "@tauri-apps/plugin-dialog";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { createVibeModel, buildProviderOptions, formatLlmError } from "./lib/vibeAgent";
+import { picoLog } from "./lib/logger";
 import type {
   AppSettingsView,
   BuildResult,
@@ -26,6 +27,18 @@ import type {
 
 function isTauriRuntime(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+async function apiInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  picoLog.debug("api", `[invoke -> ${cmd}]`, args ? Object.keys(args) : "");
+  try {
+    const res = await invoke<T>(cmd, args);
+    picoLog.trace("api", `[invoke <- ${cmd} OK]`);
+    return res;
+  } catch (err: any) {
+    picoLog.error("api", `[invoke <- ${cmd} ERROR]`, err);
+    throw err;
+  }
 }
 
 export async function pickFolderDialog(title: string): Promise<string | null> {
@@ -76,28 +89,28 @@ export async function openUrlInBrowser(url: string): Promise<void> {
 
 export const picoApi = {
   openSite(path: string): Promise<SiteInfo> {
-    return invoke<SiteInfo>("open_site", { path });
+    return apiInvoke<SiteInfo>("open_site", { path });
   },
   createSite(path: string, starter: string, title: string, author: string): Promise<SiteInfo> {
-    return invoke<SiteInfo>("create_site", { path, starter, title, author });
+    return apiInvoke<SiteInfo>("create_site", { path, starter, title, author });
   },
   getRecentSites(): Promise<RecentSite[]> {
-    return invoke<RecentSite[]>("get_recent_sites");
+    return apiInvoke<RecentSite[]>("get_recent_sites");
   },
   listContent(collection: string): Promise<PostMeta[]> {
-    return invoke<PostMeta[]>("list_content", { collection });
+    return apiInvoke<PostMeta[]>("list_content", { collection });
   },
   readPost(path: string): Promise<PostDocument> {
-    return invoke<PostDocument>("read_post", { path });
+    return apiInvoke<PostDocument>("read_post", { path });
   },
   savePost(path: string, frontmatter: Record<string, unknown>, markdown: string): Promise<void> {
-    return invoke<void>("save_post", { path, frontmatter, markdown });
+    return apiInvoke<void>("save_post", { path, frontmatter, markdown });
   },
   deletePost(path: string): Promise<void> {
-    return invoke<void>("delete_post", { path });
+    return apiInvoke<void>("delete_post", { path });
   },
   saveImage(sourcePath: string, postSlug: string, collection: string): Promise<string> {
-    return invoke<string>("save_image", {
+    return apiInvoke<string>("save_image", {
       sourcePath,
       postSlug,
       collection,
@@ -110,7 +123,7 @@ export const picoApi = {
     collection: string,
     siteWide = false
   ): Promise<string> {
-    return invoke<string>("save_image_bytes", {
+    return apiInvoke<string>("save_image_bytes", {
       fileName,
       bytes,
       postSlug,
@@ -119,70 +132,72 @@ export const picoApi = {
     });
   },
   checkImageSize(sourcePath: string): Promise<number> {
-    return invoke<number>("check_image_size", { sourcePath });
+    return apiInvoke<number>("check_image_size", { sourcePath });
   },
   listModels(): Promise<ModelDef[]> {
-    return invoke<ModelDef[]>("list_models");
+    return apiInvoke<ModelDef[]>("list_models");
   },
   saveModel(model: ModelDef): Promise<void> {
-    return invoke<void>("save_model", { model });
+    return apiInvoke<void>("save_model", { model });
   },
   deleteModel(name: string): Promise<void> {
-    return invoke<void>("delete_model", { name });
+    return apiInvoke<void>("delete_model", { name });
   },
   listTemplates(): Promise<string[]> {
-    return invoke<string[]>("list_templates");
+    return apiInvoke<string[]>("list_templates");
   },
   readTemplate(path: string): Promise<string> {
-    return invoke<string>("read_template", { path });
+    return apiInvoke<string>("read_template", { path });
   },
   saveTemplate(path: string, content: string): Promise<void> {
-    return invoke<void>("save_template", { path, content });
+    return apiInvoke<void>("save_template", { path, content });
   },
   revertTemplate(path: string): Promise<string> {
-    return invoke<string>("revert_template", { path });
+    return apiInvoke<string>("revert_template", { path });
   },
   getTemplateContext(path: string): Promise<TemplateContextInfo> {
-    return invoke<TemplateContextInfo>("get_template_context", { path });
+    return apiInvoke<TemplateContextInfo>("get_template_context", { path });
   },
   readTheme(): Promise<string> {
-    return invoke<string>("read_theme");
+    return apiInvoke<string>("read_theme");
   },
   saveTheme(content: string): Promise<void> {
-    return invoke<void>("save_theme", { content });
+    return apiInvoke<void>("save_theme", { content });
   },
   buildSite(includeDrafts: boolean): Promise<BuildResult> {
-    return invoke<BuildResult>("build_site", { includeDrafts });
+    return apiInvoke<BuildResult>("build_site", { includeDrafts });
   },
   startPreview(): Promise<string> {
-    return invoke<string>("start_preview");
+    return apiInvoke<string>("start_preview");
   },
   getPreviewRevision(): Promise<number> {
-    return invoke<number>("get_preview_revision");
+    return apiInvoke<number>("get_preview_revision");
   },
   exportSite(destPath: string): Promise<void> {
-    return invoke<void>("export_site", { destPath });
+    return apiInvoke<void>("export_site", { destPath });
   },
   publishGithubPages(): Promise<PublishResult> {
-    return invoke<PublishResult>("publish_github_pages");
+    return apiInvoke<PublishResult>("publish_github_pages");
   },
   listLlmProviders(): Promise<ProviderInfo[]> {
-    return invoke<ProviderInfo[]>("list_llm_providers");
+    return apiInvoke<ProviderInfo[]>("list_llm_providers");
   },
   getLlmSettings(): Promise<LlmSettingsView> {
-    return invoke<LlmSettingsView>("get_llm_settings");
+    return apiInvoke<LlmSettingsView>("get_llm_settings");
   },
   saveLlmSettings(settings: SaveLlmSettingsInput): Promise<void> {
-    return invoke<void>("save_llm_settings", { settings });
+    return apiInvoke<void>("save_llm_settings", { settings });
   },
   getLlmKey(provider: string): Promise<string> {
-    return invoke<string>("get_llm_key", { provider });
+    return apiInvoke<string>("get_llm_key", { provider });
   },
   async testLlmConnection(provider: string, model: string): Promise<TestConnectionResult> {
+    picoLog.info("llm", `Testing LLM connection: provider=${provider}, model=${model}`);
     let apiKey = "";
     try {
       apiKey = await picoApi.getLlmKey(provider);
     } catch {
+      picoLog.warn("llm", `No key found for ${provider}`);
       return {
         success: false,
         model,
@@ -192,6 +207,7 @@ export const picoApi = {
     }
 
     if (!apiKey || !apiKey.trim()) {
+      picoLog.warn("llm", `Empty key for ${provider}`);
       return {
         success: false,
         model,
@@ -228,6 +244,7 @@ export const picoApi = {
 
       clearTimeout(timeoutId);
       const elapsed_ms = Date.now() - start;
+      picoLog.info("llm", `LLM connection test succeeded in ${elapsed_ms}ms`);
       return {
         success: true,
         model,
@@ -237,32 +254,34 @@ export const picoApi = {
     } catch (err: any) {
       clearTimeout(timeoutId);
       const elapsed_ms = Date.now() - start;
+      const formatted = formatLlmError(err, provider, model);
+      picoLog.error("llm", `LLM connection test failed in ${elapsed_ms}ms: ${formatted}`, err);
       return {
         success: false,
         model,
         elapsed_ms,
-        error: formatLlmError(err, provider, model),
+        error: formatted,
       };
     }
   },
   getVibeContext(target: VibeTarget): Promise<{ original_content: string; system_prompt: string }> {
-    return invoke<{ original_content: string; system_prompt: string }>("get_vibe_context", { target });
+    return apiInvoke<{ original_content: string; system_prompt: string }>("get_vibe_context", { target });
   },
   evaluateVibeProposal(
     target: VibeTarget,
     proposed: string,
     sources?: GroundingSource[] | null
   ): Promise<VibeResult> {
-    return invoke<VibeResult>("evaluate_vibe_proposal_cmd", { target, proposed, sources });
+    return apiInvoke<VibeResult>("evaluate_vibe_proposal_cmd", { target, proposed, sources });
   },
   getSiteConfig(): Promise<SiteConfig> {
-    return invoke<SiteConfig>("get_site_config");
+    return apiInvoke<SiteConfig>("get_site_config");
   },
   saveSiteConfig(config: SiteConfig): Promise<void> {
-    return invoke<void>("save_site_config", { config });
+    return apiInvoke<void>("save_site_config", { config });
   },
   getAppSettings(): Promise<AppSettingsView> {
-    return invoke<AppSettingsView>("get_app_settings");
+    return apiInvoke<AppSettingsView>("get_app_settings");
   },
   saveAppSettings(params: {
     llmEndpoint: string;
@@ -270,6 +289,6 @@ export const picoApi = {
     llmApiKey?: string | null;
     githubToken?: string | null;
   }): Promise<AppSettingsView> {
-    return invoke<AppSettingsView>("save_app_settings", params);
+    return apiInvoke<AppSettingsView>("save_app_settings", params);
   },
 };
