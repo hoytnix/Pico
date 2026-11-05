@@ -1,10 +1,14 @@
 # Active Context: Pico
 
 ## Current Focus
-Resolved Vibe hallucinated completion messages, hooked stream error handling into AI SDK v7 ToolLoopAgent, and suppressed high-frequency preview polling logs.
+Bumped version from `0.1.0` to `0.1.1` across `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`, tagged release `v0.1.1`, and pushed to origin.
 
 ## Recent State Changes
-1. **Vibe Stream Error Handling & False Completion Fix:**
+1. **Version Bump to `0.1.1` & Release Tag `v0.1.1`:**
+   - Updated package version to `0.1.1` in [package.json](file:///home/oloty/Dev/Pico/package.json), [Cargo.toml](file:///home/oloty/Dev/Pico/src-tauri/Cargo.toml), and [tauri.conf.json](file:///home/oloty/Dev/Pico/src-tauri/tauri.conf.json).
+   - Rebuilt frontend and backend metadata.
+   - Created git tag `v0.1.1` and pushed commits and tag to `origin/main` to trigger CI release workflow.
+2. **Vibe Stream Error Handling & False Completion Fix:**
    - Root cause: In AI SDK v7 (`ai` Core), `streamText` suppresses stream errors so they do not crash streaming iterators, routing them instead to lifecycle callbacks. When an error occurred during subsequent steps of a tool loop (such as Google API 503 high demand or 429 quota exhaustion on Gemini 3.5 Flash Lite), `streamResult.textStream` terminated cleanly with 0 deltas without throwing in `for await`.
    - In `VibePane.tsx`, when `accumulatedText` was empty and `pendingProposal` was undefined, a hardcoded fallback previously emitted `'I have completed the requested operation.'`, falsely assuring the user that changes were made when in reality the model had failed or aborted.
    - Wired `onError` into `createVibeAgent` in [vibeAgent.ts](file:///home/oloty/Dev/Pico/src/lib/vibeAgent.ts) and captured `streamError` in [VibePane.tsx](file:///home/oloty/Dev/Pico/src/components/vibe/VibePane.tsx) to surface formatted LLM error cards to the user immediately.

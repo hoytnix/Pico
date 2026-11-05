@@ -10,6 +10,7 @@
 
 | Module / Requirement | Status | Notes |
 | --- | --- | --- |
+| Version Bump `v0.1.1` | Completed | Bumped version to `0.1.1` across `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`. Tagged `v0.1.1` and pushed to origin. |
 | Vibe Stream Error & Log Flooding Fix | Completed | 1) Hooked `onError` into `ToolLoopAgent` and `VibePane.tsx` to capture stream failures (e.g. 503 high demand / 429 quota) instead of swallowing them. 2) Replaced false "completed the requested operation" fallback text with honest error and status messaging. 3) Normalized theme CSS path handling. 4) Suppressed `get_preview_revision` 600ms polling logs in `apiInvoke`. |
 | Verbose File Logging (`~/.pico.log`) | Completed | Implemented unified file logger in `src-tauri/src/logger.rs` and frontend client in `src/lib/logger.ts`. Writes millisecond-timestamped logs to `~/.pico.log`, capturing Rust panics, all Tauri commands, build steps, preview watcher events, git actions, and frontend console/window errors. |
 | Vibe Proposal Loop Fix | Completed | Resolved issue where `toolApproval: 'user-approval'` halted `ToolLoopAgent` before `execute()` could run, causing blank responses. `proposeEdit` now generates diffs during execution and returns status to the loop so the model streams its explanation, while keeping file saves gated behind manual user Accept/Reject. |
