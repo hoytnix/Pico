@@ -1,6 +1,6 @@
 [package]
 name = "pico"
-version = "0.1.2"
+version = "0.1.3"
 description = "Pico — Desktop Static Site Generator with Milkdown Crepe & MiniJinja"
 license-file = "../LICENSE"
 authors = ["Pico"]
