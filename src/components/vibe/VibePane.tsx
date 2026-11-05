@@ -177,6 +177,26 @@ export function VibePane({
         );
       }
 
+      // If the model finished without emitting assistant text (e.g. it called proposeEdit
+      // and stopped), provide a friendly default summary so the message is never blank.
+      if (!accumulatedText.trim()) {
+        const capturedProposal = pendingProposal as ProposeEditResult | undefined;
+        const fallbackText = capturedProposal
+          ? capturedProposal.explanation || `I have prepared a proposed edit for ${capturedProposal.path}. Please review the diff below.`
+          : 'I have completed the requested operation.';
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsgId
+              ? {
+                  ...m,
+                  content: fallbackText,
+                }
+              : m
+          )
+        );
+      }
+
       setIsStreaming(false);
       abortControllerRef.current = null;
     } catch (err: any) {

@@ -62,7 +62,7 @@ flowchart TD
 - Built with official Vercel AI SDK v7 (`ai` Core, `@ai-sdk/react`, `@ai-sdk/google`, `@ai-sdk/openai`).
 - Frontend-direct execution inside the Tauri webview; keys obtained at call-time via IPC (`get_llm_key`).
 - Strictly limited to 4 tools: `readContentFile`, `readTemplateFile`, `readThemeCss`, `proposeEdit`.
-- Tool approval gate: `toolApproval: { proposeEdit: 'user-approval' }`. Edits are NEVER applied autonomously. Proposed edits display as unified diff cards with **Accept & Save** and **Reject**.
+- Tool proposal and diff approval gate: In AI SDK v7, `proposeEdit` executes `evaluateVibeProposal` to compute unified diffs and emit the proposal card to the user UI, returning confirmation to the agent loop so the model can conclude its response with an explanation. Proposed edits are NEVER applied autonomously—they display as unified diff cards requiring explicit user **Accept & Save** or **Reject**.
 - Multi-turn conversation history, streaming assistant replies, and strict no-key safety rule.
 
 ### 3. Template Guardrail Pattern

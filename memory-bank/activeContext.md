@@ -1,10 +1,14 @@
 # Active Context: Pico
 
 ## Current Focus
-Diagnosed and fixed the "Load failed" error on Gemini Native (`gemini-native`).
+Diagnosed and fixed Vibe agent empty/blank responses when proposing edits.
 
 ## Recent State Changes
-1. **Added Git Commit Protocol on Memory Bank Updates to GEMINI.md:**
+1. **Vibe Agent Empty Response & Tool Loop Fix:**
+   - Identified that AI SDK v7's `toolApproval: { proposeEdit: 'user-approval' }` configuration on `ToolLoopAgent` paused the tool loop before `proposeEdit.execute()` could run, waiting indefinitely for client approval tokens before proceeding. Because the loop was frozen waiting for tool results, the agent never called `execute()` (leaving the proposal diff card ungenerated) and never streamed an explanation, resulting in a blank response.
+   - Refactored `proposeEdit` in [vibeAgent.ts](file:///home/oloty/Dev/Pico/src/lib/vibeAgent.ts): the tool execution itself runs `evaluateVibeProposal`, generates the diff card via `onProposalCreated`, and returns confirmation to the model. The model is then prompted to explain the changes in its streaming response. Disk saves remain strictly gated behind user action ("Accept & Save" / "Reject").
+   - Added fallback summary text in [VibePane.tsx](file:///home/oloty/Dev/Pico/src/components/vibe/VibePane.tsx) so that even if a model halts after emitting a tool call without generating text, the user receives a helpful message instead of a blank card.
+2. **Added Git Commit Protocol on Memory Bank Updates to GEMINI.md:**
    - Updated [GEMINI.md](file:///home/oloty/Dev/Pico/GEMINI.md) operational rules and guardrails to mandate committing to Git every time `/memory-bank/` is updated.
 2. **CSP `connect-src` Fix for Gemini Native & Third-Party LLMs:**
    - Identified root cause of WebKit generic `TypeError: Load failed` when calling Gemini Native from frontend: [tauri.conf.json](file:///home/oloty/Dev/Pico/src-tauri/tauri.conf.json) CSP `connect-src` only permitted `https://api.openai.com` and `https://api.github.com`. WebKit/WebKit2GTK silently blocked requests to `https://generativelanguage.googleapis.com` as CSP violations.

@@ -10,6 +10,7 @@
 
 | Module / Requirement | Status | Notes |
 | --- | --- | --- |
+| Vibe Proposal Loop Fix | Completed | Resolved issue where `toolApproval: 'user-approval'` halted `ToolLoopAgent` before `execute()` could run, causing blank responses. `proposeEdit` now generates diffs during execution and returns status to the loop so the model streams its explanation, while keeping file saves gated behind manual user Accept/Reject. |
 | Memory Bank Git Commit Rule | Completed | Added Step 4 and strict guardrail to `GEMINI.md` to ensure memory bank updates are committed to Git immediately after modification. |
 | Gemini Native CSP Fix | Completed | Added `https://generativelanguage.googleapis.com`, `https://api.meta.ai`, and `https://openrouter.ai` to CSP `connect-src` in `tauri.conf.json` to eliminate WebKit "Load failed" fetch blocking. Also mapped `load failed` in `formatLlmError`. |
 | Preset Model Selector Update | Completed | Removed `gemini-3-flash-preview` and `gemini-2.5-flash`; replaced with `gemini-3.8-flash`, `gemini-3.5-flash`, and `gemini-3.5-flash-lite`. |

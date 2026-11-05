@@ -221,7 +221,7 @@ export function createVibeAgent(
 
     proposeEdit: tool({
       description:
-        'Propose an edit to a content file (markdown body), template file (Jinja), or theme CSS. Requires explicit user approval.',
+        'Propose an edit to a content file (markdown body), template file (Jinja), or theme CSS. The edit will be presented to the user as a diff for review. After calling proposeEdit, explain what changes were made in your response.',
       inputSchema: z.object({
         targetType: z
           .enum(['content', 'template', 'theme'])
@@ -253,7 +253,12 @@ export function createVibeAgent(
             onProposalCreated(result);
           }
 
-          return result;
+          return {
+            status: 'proposal-created',
+            path,
+            explanation: result.explanation,
+            message: 'The proposed edit has been created and presented to the user as a diff for review and approval.',
+          };
         } catch (err: any) {
           return { error: `Failed to evaluate proposal for ${path}: ${err.message || String(err)}` };
         }
@@ -280,9 +285,6 @@ Safety rules:
     model: modelInstance,
     instructions,
     tools,
-    toolApproval: {
-      proposeEdit: 'user-approval',
-    },
     providerOptions: buildProviderOptions(config),
   });
 }
