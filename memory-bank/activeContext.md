@@ -1,10 +1,14 @@
 # Active Context: Pico
 
 ## Current Focus
-Resolved Vibe multi-file proposal clobbering by implementing sequential diff rendering, individual approval tracking, and batch accept/reject actions.
+Bumped version from `0.1.1` to `0.1.2`, tagged release `v0.1.2`, and pushed to remote to trigger the CI release pipeline.
 
 ## Recent State Changes
-1. **Sequential Multi-File Diff Rendering in Vibe AI (`src/components/vibe/VibePane.tsx` & `src/lib/vibeAgent.ts`):**
+1. **Version Bump to `0.1.2` & Release Tag `v0.1.2`:**
+   - Updated package version to `0.1.2` across [package.json](file:///home/oloty/Dev/Pico/package.json), [Cargo.toml](file:///home/oloty/Dev/Pico/src-tauri/Cargo.toml), and [tauri.conf.json](file:///home/oloty/Dev/Pico/src-tauri/tauri.conf.json).
+   - Recompiled backend with `cargo check` and rebuilt frontend bundle with `pnpm build`.
+   - Created git tag `v0.1.2` and pushed commits and tag to `origin/main` to trigger the CI release workflow.
+2. **Sequential Multi-File Diff Rendering in Vibe AI (`src/components/vibe/VibePane.tsx` & `src/lib/vibeAgent.ts`):**
    - **Root Cause:** When an instruction required edits to more than one file, the agent executed `proposeEdit` for each file. Previously, `Message` and `pendingProposal` stored only a single proposal reference. Each new proposal immediately overwrote the previous one, causing earlier diffs to appear briefly and disappear before the user could review or accept them.
    - **Multi-Proposal State:** Added `ProposalItem` interface extending `ProposeEditResult` with unique `id` and independent `status` (`'pending' | 'accepted' | 'rejected'`). Stored proposals as an array (`proposals?: ProposalItem[]`) on `Message`, appending each proposal emitted during the turn.
    - **Sequential UI & Independent Approval:** Rendered all diff cards sequentially in order (`Diff X of Y`) inside the assistant message bubble. Each diff card features dedicated `Accept & Save` and `Reject` buttons that update the specific proposal without altering or discarding others.

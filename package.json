@@ -1,7 +1,7 @@
 {
   "name": "pico",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Pico — Desktop Static Site Generator with TipTap & MiniJinja",
   "license": "Kopimi",
   "type": "module",
