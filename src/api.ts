@@ -29,11 +29,16 @@ function isTauriRuntime(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-async function apiInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  picoLog.debug("api", `[invoke -> ${cmd}]`, args ? Object.keys(args) : "");
+async function apiInvoke<T>(cmd: string, args?: Record<string, unknown>, silent = false): Promise<T> {
+  const isHighFreq = cmd === "get_preview_revision" || silent;
+  if (!isHighFreq) {
+    picoLog.debug("api", `[invoke -> ${cmd}]`, args ? Object.keys(args) : "");
+  }
   try {
     const res = await invoke<T>(cmd, args);
-    picoLog.trace("api", `[invoke <- ${cmd} OK]`);
+    if (!isHighFreq) {
+      picoLog.trace("api", `[invoke <- ${cmd} OK]`);
+    }
     return res;
   } catch (err: any) {
     picoLog.error("api", `[invoke <- ${cmd} ERROR]`, err);

@@ -1,10 +1,20 @@
 # Active Context: Pico
 
 ## Current Focus
-Implemented comprehensive, verbose logging pipeline writing to `~/.pico.log` for both backend and frontend.
+Resolved Vibe hallucinated completion messages, hooked stream error handling into AI SDK v7 ToolLoopAgent, and suppressed high-frequency preview polling logs.
 
 ## Recent State Changes
-1. **Verbose Unified File Logging to `~/.pico.log`:**
+1. **Vibe Stream Error Handling & False Completion Fix:**
+   - Root cause: In AI SDK v7 (`ai` Core), `streamText` suppresses stream errors so they do not crash streaming iterators, routing them instead to lifecycle callbacks. When an error occurred during subsequent steps of a tool loop (such as Google API 503 high demand or 429 quota exhaustion on Gemini 3.5 Flash Lite), `streamResult.textStream` terminated cleanly with 0 deltas without throwing in `for await`.
+   - In `VibePane.tsx`, when `accumulatedText` was empty and `pendingProposal` was undefined, a hardcoded fallback previously emitted `'I have completed the requested operation.'`, falsely assuring the user that changes were made when in reality the model had failed or aborted.
+   - Wired `onError` into `createVibeAgent` in [vibeAgent.ts](file:///home/oloty/Dev/Pico/src/lib/vibeAgent.ts) and captured `streamError` in [VibePane.tsx](file:///home/oloty/Dev/Pico/src/components/vibe/VibePane.tsx) to surface formatted LLM error cards to the user immediately.
+   - Replaced misleading completion fallback with an honest message: `"I was unable to propose any changes for this request. Please try rephrasing or inspect the file directly."`
+   - Normalized theme paths in `vibeAgent.ts` and `src-tauri/src/vibe.rs` to tolerate leading slashes and relative variants (`/assets/theme.css`, `./assets/theme.css`).
+   - Added system instruction guiding Vibe to inspect `assets/theme.css` via `readThemeCss` whenever users ask to modify app or site colors/styles.
+2. **Suppression of `get_preview_revision` Log Flooding:**
+   - Identified that `PreviewPane.tsx` polls `getPreviewRevision` every 600ms, resulting in two log lines (`[invoke -> get_preview_revision]` and `[invoke <- get_preview_revision OK]`) being written every second to `~/.pico.log`.
+   - Updated `apiInvoke` in [api.ts](file:///home/oloty/Dev/Pico/src/api.ts) to suppress debug and trace logging for `get_preview_revision`.
+3. **Verbose Unified File Logging to `~/.pico.log`:**
    - Implemented thread-safe `PicoFileLogger` in [logger.rs](file:///home/oloty/Dev/Pico/src-tauri/src/logger.rs) implementing the standard `log::Log` facade, writing millisecond-precision timestamped entries directly to `~/.pico.log` with immediate flushing on every write.
    - Installed panic hook in Rust to capture and log critical panics with source file, line number, and payload before termination.
    - Added `log_frontend` Tauri command to channel frontend logs into the same unified log file.

@@ -3,6 +3,7 @@ import { createGoogle } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
 import { picoApi } from '../api';
+import { picoLog } from './logger';
 import type { GroundingSource } from '../types';
 
 export interface VibeAgentConfig {
@@ -167,7 +168,8 @@ export interface ProposeEditResult {
 
 export function createVibeAgent(
   config: VibeAgentConfig,
-  onProposalCreated?: (result: ProposeEditResult) => void
+  onProposalCreated?: (result: ProposeEditResult) => void,
+  onError?: (error: unknown) => void
 ) {
   const modelInstance = createVibeModel(config);
 
@@ -236,12 +238,16 @@ export function createVibeAgent(
       }),
       execute: async ({ targetType, path, proposedContent, explanation }) => {
         try {
-          const target = { kind: targetType, path };
+          let cleanPath = path.trim().replace(/\\/g, '/').replace(/^\.?\//, '');
+          if (targetType === 'theme') {
+            cleanPath = 'assets/theme.css';
+          }
+          const target = { kind: targetType, path: cleanPath };
           const evalResult = await picoApi.evaluateVibeProposal(target, proposedContent);
 
           const result: ProposeEditResult = {
             targetType,
-            path,
+            path: cleanPath,
             diff: evalResult.diff,
             proposed: evalResult.proposed,
             validationError: evalResult.validation_error,
@@ -255,7 +261,7 @@ export function createVibeAgent(
 
           return {
             status: 'proposal-created',
-            path,
+            path: cleanPath,
             explanation: result.explanation,
             message: 'The proposed edit has been created and presented to the user as a diff for review and approval.',
           };
@@ -277,6 +283,7 @@ You help users refine markdown content, customize MiniJinja templates, and tweak
 Safety rules:
 - NEVER output raw shell commands or ask the user to use a terminal. Pico is completely terminal-free.
 - To make a change, inspect the file first using readContentFile, readTemplateFile, or readThemeCss, then call proposeEdit with the complete proposed new text.
+- If the user asks to change theme colors, fonts, or styling of their app or site, inspect assets/theme.css using readThemeCss and propose the changes using proposeEdit.
 - Do NOT fabricate file paths or hallucinate models.
 - When editing MiniJinja templates, adhere to model variables and never invent unknown variables or top-level macro HTML.
 - When proposing an edit, the proposal will be presented to the user as a unified diff with Accept / Reject buttons. Explain your reasoning clearly.`;
@@ -286,5 +293,12 @@ Safety rules:
     instructions,
     tools,
     providerOptions: buildProviderOptions(config),
+    onError: (event: any) => {
+      const err = event?.error ?? event;
+      picoLog.error('vibe', 'ToolLoopAgent error:', err);
+      if (onError) {
+        onError(err);
+      }
+    },
   });
 }

@@ -11,6 +11,7 @@ import {
   Cpu,
 } from 'lucide-react';
 import { picoApi } from '../../api';
+import { picoLog } from '../../lib/logger';
 import {
   createVibeAgent,
   buildProviderOptions,
@@ -130,6 +131,8 @@ export function VibePane({
         grounding: providerView?.grounding,
       };
 
+      let streamError: unknown = null;
+
       const agent = createVibeAgent(
         config,
         (proposal) => {
@@ -145,6 +148,9 @@ export function VibePane({
                 : m
             )
           );
+        },
+        (err) => {
+          streamError = err;
         }
       );
 
@@ -157,6 +163,7 @@ export function VibePane({
         }));
 
       // Stream assistant response
+      picoLog.info('vibe', `Streaming Vibe response: provider=${currentProviderId}, model=${effectiveModel}`);
       const streamResult = await agent.stream({
         prompt: agentPrompt,
         abortSignal: abortController.signal,
@@ -177,13 +184,25 @@ export function VibePane({
         );
       }
 
-      // If the model finished without emitting assistant text (e.g. it called proposeEdit
-      // and stopped), provide a friendly default summary so the message is never blank.
-      if (!accumulatedText.trim()) {
+      if (streamError) {
+        const formatted = formatLlmError(streamError, currentProviderId, effectiveModel);
+        setActiveError(formatted);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsgId
+              ? {
+                  ...m,
+                  error: formatted,
+                  content: accumulatedText || 'An error occurred while contacting the AI model. Check the error message below.',
+                }
+              : m
+          )
+        );
+      } else if (!accumulatedText.trim()) {
         const capturedProposal = pendingProposal as ProposeEditResult | undefined;
         const fallbackText = capturedProposal
           ? capturedProposal.explanation || `I have prepared a proposed edit for ${capturedProposal.path}. Please review the diff below.`
-          : 'I have completed the requested operation.';
+          : 'I was unable to propose any changes for this request. Please try rephrasing or inspect the file directly.';
 
         setMessages((prev) =>
           prev.map((m) =>

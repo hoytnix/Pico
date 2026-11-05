@@ -122,7 +122,8 @@ pub fn evaluate_vibe_proposal(
         }
         "theme" => {
             let norm = target.path.replace('\\', "/");
-            if norm != "assets/theme.css" && norm != "theme.css" {
+            let norm_clean = norm.trim_start_matches('.').trim_start_matches('/');
+            if norm_clean != "assets/theme.css" && norm_clean != "theme.css" {
                 return Err(
                     "Theme vibe may ONLY edit `assets/theme.css`, never templates or skeleton.jinja."
                         .to_string(),
