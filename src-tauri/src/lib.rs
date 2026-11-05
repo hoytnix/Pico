@@ -70,6 +70,7 @@ pub fn run() {
             get_llm_key,
             test_llm_connection,
             get_vibe_context,
+            get_vibe_site_snapshot,
             evaluate_vibe_proposal_cmd,
         ])
         .run(tauri::generate_context!())

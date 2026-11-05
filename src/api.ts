@@ -21,6 +21,7 @@ import type {
   TestConnectionResult,
   VibeOptions,
   VibeResult,
+  VibeSiteSnapshot,
   VibeTarget,
 } from "./types";
 
@@ -273,6 +274,9 @@ export const picoApi = {
   },
   getVibeContext(target: VibeTarget): Promise<{ original_content: string; system_prompt: string }> {
     return apiInvoke<{ original_content: string; system_prompt: string }>("get_vibe_context", { target });
+  },
+  getVibeSiteSnapshot(): Promise<VibeSiteSnapshot> {
+    return apiInvoke<VibeSiteSnapshot>("get_vibe_site_snapshot");
   },
   evaluateVibeProposal(
     target: VibeTarget,

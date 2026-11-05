@@ -38,4 +38,4 @@ pub use templates::{
     get_template_context, list_templates, read_template, read_theme, revert_template,
     revert_template_impl, save_template, save_template_impl, save_theme,
 };
-pub use vibe::{evaluate_vibe_proposal_cmd, get_vibe_context};
+pub use vibe::{evaluate_vibe_proposal_cmd, get_vibe_context, get_vibe_site_snapshot};

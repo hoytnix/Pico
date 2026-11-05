@@ -1,14 +1,15 @@
 # Progress & Roadmap: Pico
 
 ## Build & Test Status
-- **Rust Backend (`cargo test`):** 22 passed; 0 failed (28.36s).
-- **Frontend Bundle (`pnpm build`):** Builds cleanly (`tsc --noEmit && vite build`), generating Tailwind v4 CSS bundle in 4.39s.
+- **Rust Backend (`cargo test`):** 23 passed; 0 failed (28.36s).
+- **Frontend Bundle (`pnpm build`):** Builds cleanly (`tsc --noEmit && vite build`), generating Tailwind v4 CSS bundle in 4.51s.
 - **Backend Type Check (`cargo check --tests`):** Clean, 0 warnings, 0 errors in 0.18s.
 
 ## Feature Matrix & Completed Modules
 
 | Module / Requirement | Status | Notes |
 | --- | --- | --- |
+| Vibe Full Site Context & 970/1000 Prompt Architecture | Completed | **Injected complete site context into Vibe agent prompt with prompt caching optimizations:**<br>1) Added `VibeSiteFile`, `VibeSiteSnapshot`, and `load_vibe_site_snapshot` in backend, returning `site.yaml`, all `models/*.yaml`, `assets/theme.css`, all `templates/**/*.jinja`, and content manifest.<br>2) Created `src/lib/vibe/promptBuilder.ts` (166 LOC) with 970/1000 prompt architecture: zero terminal invariants, engine guardrails (fuel limit 50k, macro rules, autoescape `| safe`, AST dotted variable rules), ReAct cognitive workflow, and cached pre-loaded site source code.<br>3) Added `listContentFiles`, `listTemplates`, and `readSiteConfig` discovery tools to `vibeAgent.ts` (260 LOC).<br>4) Wired `activePostPath` and prompt loading into `useVibeChat.ts` and `VibePane.tsx`.<br>5) Added backend integration unit test `test_load_vibe_site_snapshot` (23/23 tests passing). |
 | Refactoring Roadmap (All 9 Tasks) | Completed | **100% of tasks completed across backend and frontend:**<br>1) Dissolved 1,379-line `llm.rs` into `src-tauri/src/llm/` (`registry.rs`, `formatters.rs`, `validation.rs`, and test suite).<br>2) Abstracted `ExtractedFrontmatter` in `post.rs` eliminating duplication across `content.rs` and `content_scanner.rs`.<br>3) Disentangled 615-line `validation.rs` into `slug.rs`, `document.rs`, and `guardrails.rs`.<br>4) Modularized 454-line `render.rs` into `common.rs`, `singles.rs`, `collections.rs`, `tags.rs`, `home_and_404.rs`.<br>5) Purged legacy settings ghost and extracted `state.rs`.<br>6) Extracted `useVibeChat.ts` (346 LOC), reducing `VibePane.tsx` from 388 to 109 LOC.<br>7) Decoupled `ModelsEditor.tsx` via `ModelSidebar.tsx` and `ModelFieldTable.tsx`.<br>8) Decoupled `EditorToolbar.tsx` via `HeadingDropdown.tsx` and `TableControls.tsx` (reduced to 201 LOC).<br>9) Decoupled `PreviewPane.tsx` via `PreviewHeaderBar.tsx` and `BuildBanner.tsx` (reduced to 168 LOC).<br>**Zero production files exceed 400 LOC.** |
 | Version Bump `v0.1.2` | Completed | Bumped version to `0.1.2` across `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`. Tagged `v0.1.2` and pushed to origin. |
 | Sequential Multi-File Diffs in Vibe | Completed | Fixed proposal clobbering where subsequent edits overwrote the single proposal slot. Diff cards now display sequentially in order (`Diff X of Y`) inside the message bubble, with independent Accept & Save / Reject controls per card, batch Accept All / Reject All actions, individual loading indicators, and agent prompt guidance. |

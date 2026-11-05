@@ -23,6 +23,7 @@ interface VibePaneProps {
 export function VibePane({
   currentSite,
   llmSettings,
+  activePostPath,
   onPostUpdatedFromVibe,
   onTemplateUpdatedFromVibe,
   onThemeUpdatedFromVibe,
@@ -50,6 +51,7 @@ export function VibePane({
   } = useVibeChat({
     currentSite,
     llmSettings,
+    activePostPath,
     onPostUpdatedFromVibe,
     onTemplateUpdatedFromVibe,
     onThemeUpdatedFromVibe,

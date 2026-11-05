@@ -183,6 +183,21 @@ pub struct VibeContext {
     pub system_prompt: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VibeSiteFile {
+    pub path: String,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VibeSiteSnapshot {
+    pub site_yaml: String,
+    pub models: Vec<VibeSiteFile>,
+    pub theme_css: String,
+    pub templates: Vec<VibeSiteFile>,
+    pub content_manifest: Vec<PostMeta>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProviderInfo {
     pub id: String,

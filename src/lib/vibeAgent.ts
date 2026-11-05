@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { picoApi } from '../api';
 import { picoLog } from './logger';
 import { normalizeModelPath, normalizeRelativePath } from './slug';
+import { DEFAULT_VIBE_INSTRUCTIONS } from './vibe/promptBuilder';
 import {
   type VibeAgentConfig,
   formatLlmError,
@@ -35,7 +36,8 @@ export interface ProposeEditResult {
 export function createVibeAgent(
   config: VibeAgentConfig,
   onProposalCreated?: (result: ProposeEditResult) => void,
-  onError?: (error: unknown) => void
+  onError?: (error: unknown) => void,
+  customInstructions?: string
 ) {
   const modelInstance = createVibeModel(config);
 
@@ -130,6 +132,55 @@ export function createVibeAgent(
       },
     }),
 
+    listContentFiles: tool({
+      description: 'List all content files (markdown posts and pages) across all collections in the site.',
+      inputSchema: z.object({}),
+      execute: async () => {
+        try {
+          const snapshot = await picoApi.getVibeSiteSnapshot();
+          return {
+            files: snapshot.content_manifest.map((c) => ({
+              path: c.path,
+              collection: c.collection,
+              title: c.title,
+              slug: c.slug,
+              date: c.date,
+              draft: c.draft,
+              tags: c.tags,
+            })),
+          };
+        } catch (err: any) {
+          return { error: `Failed to list content files: ${err.message || String(err)}` };
+        }
+      },
+    }),
+
+    listTemplates: tool({
+      description: 'List all MiniJinja template files in the site (templates/*.jinja and templates/macros/*.jinja).',
+      inputSchema: z.object({}),
+      execute: async () => {
+        try {
+          const templates = await picoApi.listTemplates();
+          return { templates };
+        } catch (err: any) {
+          return { error: `Failed to list templates: ${err.message || String(err)}` };
+        }
+      },
+    }),
+
+    readSiteConfig: tool({
+      description: 'Read the site.yaml configuration file (title, base_url, description, author, nav, etc.).',
+      inputSchema: z.object({}),
+      execute: async () => {
+        try {
+          const config = await picoApi.getSiteConfig();
+          return { config };
+        } catch (err: any) {
+          return { error: `Failed to read site config: ${err.message || String(err)}` };
+        }
+      },
+    }),
+
     proposeEdit: tool({
       description:
         'Propose an edit to a content file (markdown body), template file (Jinja), theme CSS, or collection model YAML. The edit will be presented to the user as a diff for review. After calling proposeEdit, explain what changes were made in your response.',
@@ -191,19 +242,7 @@ export function createVibeAgent(
     tools.googleSearch = google.tools.googleSearch({});
   }
 
-  const instructions = `You are Vibe, an expert AI web designer and content editor in Pico (a local-first desktop static site generator).
-You help users refine markdown content, customize MiniJinja templates, edit collection models (YAML schema definitions), and tweak theme CSS variables.
-Safety rules:
-- NEVER output raw shell commands or ask the user to use a terminal. Pico is completely terminal-free.
-- To inspect files or schema, use readContentFile, readTemplateFile, readThemeCss, readModelFile, or listModels.
-- To make a change, inspect the file first using the appropriate read tool, then call proposeEdit with the complete proposed new text.
-- If the user asks for changes across multiple files, call proposeEdit sequentially for each affected file. Each proposal will be presented to the user as a distinct diff card for review.
-- If the user asks to change theme colors, fonts, or styling of their app or site, inspect assets/theme.css using readThemeCss and propose the changes using proposeEdit.
-- If the user asks to view, create, or modify content models / collections (e.g. adding fields to blog, creating a portfolio or team model, modifying model schema), inspect the models using readModelFile or listModels, then propose the updated YAML definition via proposeEdit with targetType 'model' and path 'models/<name>.yaml'.
-- Collection models live in models/<collection>.yaml. Valid field types in Pico are: 'string', 'date', 'tags', 'image', 'bool'. Models must include 'title' and 'date' fields.
-- Do NOT fabricate file paths or hallucinate models.
-- When editing MiniJinja templates, adhere to model variables and never invent unknown variables or top-level macro HTML.
-- When proposing an edit, the proposal will be presented to the user as a unified diff with Accept / Reject buttons. Explain your reasoning clearly.`;
+  const instructions = customInstructions || DEFAULT_VIBE_INSTRUCTIONS;
 
   return new ToolLoopAgent({
     model: modelInstance,

@@ -6,6 +6,7 @@ import {
   formatLlmError,
   type ProposeEditResult,
 } from '../../lib/vibeAgent';
+import { loadVibeSystemPrompt } from '../../lib/vibe/promptBuilder';
 import { applyAcceptedProposal } from '../../lib/vibe/proposalApplier';
 import type { Message, ProposalItem } from './types';
 import type { LlmSettingsView, SiteInfo } from '../../types';
@@ -13,6 +14,7 @@ import type { LlmSettingsView, SiteInfo } from '../../types';
 interface UseVibeChatOptions {
   currentSite: SiteInfo | null;
   llmSettings: LlmSettingsView | null;
+  activePostPath?: string | null;
   onPostUpdatedFromVibe?: (path: string, newMarkdown: string) => void;
   onTemplateUpdatedFromVibe?: (path: string, newContent: string) => void;
   onThemeUpdatedFromVibe?: (newContent: string) => void;
@@ -22,6 +24,7 @@ interface UseVibeChatOptions {
 export function useVibeChat({
   currentSite,
   llmSettings,
+  activePostPath,
   onPostUpdatedFromVibe,
   onTemplateUpdatedFromVibe,
   onThemeUpdatedFromVibe,
@@ -111,6 +114,8 @@ export function useVibeChat({
 
       let streamError: unknown = null;
 
+      const instructions = await loadVibeSystemPrompt(activePostPath);
+
       const agent = createVibeAgent(
         config,
         (proposal) => {
@@ -139,7 +144,8 @@ export function useVibeChat({
         },
         (err) => {
           streamError = err;
-        }
+        },
+        instructions
       );
 
       // Build model messages from history (multi-turn)

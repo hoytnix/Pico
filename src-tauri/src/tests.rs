@@ -12,7 +12,7 @@
         check_duplicate_slugs, parse_markdown_document, slugify, validate_frontmatter,
         validate_template_with_models,
     };
-    use crate::vibe::evaluate_vibe_proposal;
+    use crate::vibe::{evaluate_vibe_proposal, load_vibe_site_snapshot};
     use serde_json::Value;
     use std::collections::HashMap;
     use std::fs;
@@ -665,4 +665,34 @@ Body text.
             .validation_error
             .unwrap()
             .contains("unsupported type 'unsupported_type_xyz'"));
+    }
+
+    #[test]
+    fn test_load_vibe_site_snapshot() {
+        let tmp = TempDir::new().unwrap();
+        let site_dir = tmp.path().join("vibe-snapshot-site");
+        create_site_impl(&site_dir, "blog", "Snapshot Test", "Snapshot Author").unwrap();
+
+        let snapshot = load_vibe_site_snapshot(&site_dir).expect("load_vibe_site_snapshot failed");
+
+        // Verify site.yaml loaded
+        assert!(snapshot.site_yaml.contains("Snapshot Test"));
+        assert!(snapshot.site_yaml.contains("Snapshot Author"));
+
+        // Verify models loaded (blog.yaml and project.yaml)
+        assert!(snapshot.models.iter().any(|m| m.path == "models/blog.yaml" && m.content.contains("name: blog")));
+        assert!(snapshot.models.iter().any(|m| m.path == "models/project.yaml" && m.content.contains("name: project")));
+
+        // Verify theme CSS loaded
+        assert!(!snapshot.theme_css.is_empty());
+        assert!(snapshot.theme_css.contains("--bg"));
+
+        // Verify templates loaded (skeleton, blog, project, 404, macros/cards)
+        assert!(snapshot.templates.iter().any(|t| t.path == "templates/skeleton.jinja"));
+        assert!(snapshot.templates.iter().any(|t| t.path == "templates/blog.jinja"));
+        assert!(snapshot.templates.iter().any(|t| t.path == "templates/macros/cards.jinja"));
+
+        // Verify content manifest loaded
+        assert!(!snapshot.content_manifest.is_empty());
+        assert!(snapshot.content_manifest.iter().any(|c| c.slug == "hello-world" && c.collection == "blog"));
     }

@@ -1,5 +1,5 @@
 use crate::builder::{load_all_templates, load_models};
-use crate::models::{VibeResult, VibeTarget};
+use crate::models::{VibeResult, VibeSiteFile, VibeSiteSnapshot, VibeTarget};
 use crate::validation::{
     BUILTIN_ITEM_FIELDS, SITE_CONFIG_FIELDS, strip_frontmatter_from_body,
     validate_template_with_models,
@@ -289,5 +289,73 @@ pub fn read_vibe_target_content(site_root: &Path, target: &VibeTarget) -> Result
         }
         other => Err(format!("Unsupported Vibe target kind: {}", other)),
     }
+}
+
+/// Loads a complete snapshot of the site for Vibe context (site config, models, theme, templates, and content manifest).
+pub fn load_vibe_site_snapshot(site_root: &Path) -> Result<VibeSiteSnapshot, String> {
+    // 1. site.yaml
+    let site_yaml = fs::read_to_string(site_root.join("site.yaml")).unwrap_or_default();
+
+    // 2. assets/theme.css
+    let theme_css = fs::read_to_string(site_root.join("assets").join("theme.css")).unwrap_or_default();
+
+    // 3. models/*.yaml
+    let mut models_files = Vec::new();
+    let models_dir = site_root.join("models");
+    if models_dir.is_dir() {
+        if let Ok(entries) = fs::read_dir(&models_dir) {
+            let mut paths: Vec<_> = entries.filter_map(|e| e.ok().map(|d| d.path())).collect();
+            paths.sort();
+            for p in paths {
+                if let Some(ext) = p.extension().and_then(|s| s.to_str()) {
+                    if ext == "yaml" || ext == "yml" {
+                        if let Ok(content) = fs::read_to_string(&p) {
+                            let file_name = p
+                                .file_name()
+                                .and_then(|s| s.to_str())
+                                .unwrap_or("unknown.yaml");
+                            models_files.push(VibeSiteFile {
+                                path: format!("models/{}", file_name),
+                                content,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 4. templates/**/*.jinja
+    let mut template_files = Vec::new();
+    if let Ok(all_templates) = load_all_templates(site_root) {
+        let mut keys: Vec<_> = all_templates.keys().cloned().collect();
+        keys.sort();
+        for k in keys {
+            if let Some(content) = all_templates.get(&k) {
+                template_files.push(VibeSiteFile {
+                    path: format!("templates/{}", k),
+                    content: content.clone(),
+                });
+            }
+        }
+    }
+
+    // 5. content manifest
+    let mut manifest = Vec::new();
+    if let Ok(models) = load_models(site_root) {
+        for m in &models {
+            if let Ok(posts) = crate::commands::content::list_content_impl(site_root, &m.name) {
+                manifest.extend(posts);
+            }
+        }
+    }
+
+    Ok(VibeSiteSnapshot {
+        site_yaml,
+        models: models_files,
+        theme_css,
+        templates: template_files,
+        content_manifest: manifest,
+    })
 }
 

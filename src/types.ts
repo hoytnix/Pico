@@ -102,6 +102,19 @@ export interface VibeResult {
   sources?: GroundingSource[] | null;
 }
 
+export interface VibeSiteFile {
+  path: string;
+  content: string;
+}
+
+export interface VibeSiteSnapshot {
+  site_yaml: string;
+  models: VibeSiteFile[];
+  theme_css: string;
+  templates: VibeSiteFile[];
+  content_manifest: PostMeta[];
+}
+
 export interface ProviderInfo {
   id: string;
   label: string;

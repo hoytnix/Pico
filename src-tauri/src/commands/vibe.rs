@@ -1,10 +1,20 @@
 use tauri::State;
 
-use crate::models::{AppState, GroundingSource, VibeContext, VibeResult, VibeTarget};
+use crate::models::{
+    AppState, GroundingSource, VibeContext, VibeResult, VibeSiteSnapshot, VibeTarget,
+};
 use crate::vibe::{
-    build_vibe_system_prompt, evaluate_vibe_proposal_with_sources, read_vibe_target_content,
+    build_vibe_system_prompt, evaluate_vibe_proposal_with_sources, load_vibe_site_snapshot,
+    read_vibe_target_content,
 };
 use super::require_current_site;
+
+#[tauri::command]
+pub fn get_vibe_site_snapshot(state: State<'_, AppState>) -> Result<VibeSiteSnapshot, String> {
+    let site_root = require_current_site(&state)?;
+    log::debug!(target: "pico::vibe", "get_vibe_site_snapshot requested for site: {:?}", site_root);
+    load_vibe_site_snapshot(&site_root)
+}
 
 #[tauri::command]
 pub fn get_vibe_context(target: VibeTarget, state: State<'_, AppState>) -> Result<VibeContext, String> {
